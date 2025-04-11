@@ -5,7 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <cmath>
-#include <CGNS>
+// #include <CGNS>
 
 using namespace std;
 
@@ -77,74 +77,74 @@ void StepOutput(
         p[i] = (E - 0.5 * rho[i] * (u[i] * u[i] + v[i] * v[i])) / (gamma - 1);
     }
 
-    int dim = 2;
-    string filename = "output.cgns";
+    // int dim = 2;
+    // string filename = "output.cgns";
 
-    // Open CGNS file
-    int index_file, index_base, index_zone, index_coord;
-    cgsize_t isize[3][1] = {{n_nodes}, {n_cells}, {0}};
+    // // Open CGNS file
+    // int index_file, index_base, index_zone, index_coord;
+    // cgsize_t isize[3][1] = {{n_nodes}, {n_cells}, {0}};
 
-    if (cg_open(filename.c_str(), CG_MODE_WRITE, &index_file)) cg_error_exit();
+    // if (cg_open(filename.c_str(), CG_MODE_WRITE, &index_file)) cg_error_exit();
 
-    // Create base
-    if (cg_base_write(index_file, "Base", dim, dim, &index_base)) cg_error_exit();
+    // // Create base
+    // if (cg_base_write(index_file, "Base", dim, dim, &index_base)) cg_error_exit();
 
-    // Create zone
-    if (cg_zone_write(index_file, index_base, "Zone", *isize, Unstructured, &index_zone)) cg_error_exit();
+    // // Create zone
+    // if (cg_zone_write(index_file, index_base, "Zone", *isize, Unstructured, &index_zone)) cg_error_exit();
 
-    // Write coordinates (assuming 2D mesh)
-    vector<double> x(n_nodes), y(n_nodes);
-    for (int i = 0; i < n_nodes; ++i) {
-        x[i] = r_nodes[i][0];
-        y[i] = r_nodes[i][1];
-    }
-    if (cg_coord_write(index_file, index_base, index_zone, RealDouble, "CoordinateX", x.data(), &index_coord)) cg_error_exit();
-    if (cg_coord_write(index_file, index_base, index_zone, RealDouble, "CoordinateY", y.data(), &index_coord)) cg_error_exit();
+    // // Write coordinates (assuming 2D mesh)
+    // vector<double> x(n_nodes), y(n_nodes);
+    // for (int i = 0; i < n_nodes; ++i) {
+    //     x[i] = r_nodes[i][0];
+    //     y[i] = r_nodes[i][1];
+    // }
+    // if (cg_coord_write(index_file, index_base, index_zone, RealDouble, "CoordinateX", x.data(), &index_coord)) cg_error_exit();
+    // if (cg_coord_write(index_file, index_base, index_zone, RealDouble, "CoordinateY", y.data(), &index_coord)) cg_error_exit();
 
-    // Write elements (assume we have triangles/quads - adapt as needed)
-    vector<cgsize_t> conn;
-    vector<int> element_nodes;
+    // // Write elements (assume we have triangles/quads - adapt as needed)
+    // vector<cgsize_t> conn;
+    // vector<int> element_nodes;
 
-    // Loop through each cell to collect element connectivity
-    for (int i = 0; i < n_cells; ++i) {
-        int f1 = f2c[i][0] - 1; // Get face indices for cell i
-        int f2 = f2c[i][1] - 1;
+    // // Loop through each cell to collect element connectivity
+    // for (int i = 0; i < n_cells; ++i) {
+    //     int f1 = f2c[i][0] - 1; // Get face indices for cell i
+    //     int f2 = f2c[i][1] - 1;
 
-        element_nodes.clear();
+    //     element_nodes.clear();
         
-        // Add nodes for face 1
-        for (int j = 0; j < f2n[f1].size(); ++j) {
-            element_nodes.push_back(f2n[f1][j] - 1); // Convert to 0-based index
-        }
+    //     // Add nodes for face 1
+    //     for (int j = 0; j < f2n[f1].size(); ++j) {
+    //         element_nodes.push_back(f2n[f1][j] - 1); // Convert to 0-based index
+    //     }
         
-        // Add nodes for face 2 (if relevant)
-        if (f2 >= 0) {
-            for (int j = 0; j < f2n[f2].size(); ++j) {
-                element_nodes.push_back(f2n[f2][j] - 1); // Convert to 0-based index
-            }
-        }
+    //     // Add nodes for face 2 (if relevant)
+    //     if (f2 >= 0) {
+    //         for (int j = 0; j < f2n[f2].size(); ++j) {
+    //             element_nodes.push_back(f2n[f2][j] - 1); // Convert to 0-based index
+    //         }
+    //     }
         
-        // Write element connectivity (cell-wise, can adapt if mixed elements)
-        for (int node : element_nodes) {
-            conn.push_back(node + 1); // Convert back to 1-based indexing for CGNS
-        }
-    }
+    //     // Write element connectivity (cell-wise, can adapt if mixed elements)
+    //     for (int node : element_nodes) {
+    //         conn.push_back(node + 1); // Convert back to 1-based indexing for CGNS
+    //     }
+    // }
 
-    int index_section;
-    if (cg_section_write(index_file, index_base, index_zone, "Elements", TRI_3,
-                         1, n_cells, 0, conn.data(), &index_section)) cg_error_exit();
+    // int index_section;
+    // if (cg_section_write(index_file, index_base, index_zone, "Elements", TRI_3,
+    //                      1, n_cells, 0, conn.data(), &index_section)) cg_error_exit();
 
-    // Write solution fields at nodes
-    int index_sol;
-    if (cg_sol_write(index_file, index_base, index_zone, "FlowSolution", Vertex, &index_sol)) cg_error_exit();
+    // // Write solution fields at nodes
+    // int index_sol;
+    // if (cg_sol_write(index_file, index_base, index_zone, "FlowSolution", Vertex, &index_sol)) cg_error_exit();
 
-    if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "Density", rho.data(), nullptr)) cg_error_exit();
-    if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "VelocityX", u.data(), nullptr)) cg_error_exit();
-    if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "VelocityY", v.data(), nullptr)) cg_error_exit();
-    if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "Pressure", p.data(), nullptr)) cg_error_exit();
+    // if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "Density", rho.data(), nullptr)) cg_error_exit();
+    // if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "VelocityX", u.data(), nullptr)) cg_error_exit();
+    // if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "VelocityY", v.data(), nullptr)) cg_error_exit();
+    // if (cg_field_write(index_file, index_base, index_zone, index_sol, RealDouble, "Pressure", p.data(), nullptr)) cg_error_exit();
 
-    cg_close(index_file);
-    std::cout << "CGNS file '" << filename << "' written successfully.\n";
+    // cg_close(index_file);
+    // std::cout << "CGNS file '" << filename << "' written successfully.\n";
 }
 
 #endif
