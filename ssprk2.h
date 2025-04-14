@@ -1,56 +1,65 @@
 #ifndef SSPRK2_H
 #define SSPRK2_H
 
-#include <vector>
-#include "mesh_read.h"
-#include "residualcal.h"
+#include <Eigen>
+#include <iostream>
 
-using namespace std;
+// Include the other header files required for reconstruction, flux computation, and residual computation.
+#include "reconstruct.h"
+#include "fluxcomp.h"
+#include "rescomp.h"
+#include "meshread.h"
 
-void SSPRK2(
-    // const vector<vector<double>>& Mesh,   // Mesh data
-    const int& n_faces,
-    const int& n_cells,
-    const vector<vector<double>>& f2c,
-    const vector<vector<double>>& n_f,
-    const vector<vector<double>>& A,
-    const vector<vector<double>>& V,
-    const vector<vector<double>>& Q,      // Solution vector Q
-    const vector<double>& Q_in,           // Initial condition vector Q_in
-    vector<vector<double>>& Q_out
-) {
-        double dt = 0.0005;
-        double nc = n_faces;
-
-        vector<vector<double>> Q_0 = Q;
+// The SSP RK2 function performs the time-stepping loop for updating Q.
+// Parameters:
+//   mesh    : MeshData structure containing geometric and connectivity data.
+//   Q       : Cell state matrix (n_cells x 4). This matrix is updated in place.
+//   Q_in    : Prescribed state for boundary conditions (Vector4d).
+//   gamma   : Specific heat ratio.
+//   dt      : Time step size.
+//   n_steps : Number of time steps to perform.
+void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in, double gamma, double CFL, int n_steps) {
+    // Allocate containers for left and right face states, fluxes, and residual.
+    Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
+    Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
+    Eigen::VectorXd s_max_all(mesh.f2c.rows());
+    Eigen::MatrixXd F(mesh.f2c.rows(), 4);
+    Eigen::MatrixXd Res(mesh.V.rows(), 4);
+    Eigen::VectorXd dt_local(mesh.V.rows());
+    
+    // Time-stepping loop using SSP RK2 method.
+    for (int step = 0; step < n_steps; ++step) {
+        // Stage 1: Compute the residual using the current state Q.
+        reconstruct(mesh.f2c, Q, Q_L, Q_R, mesh.n_f, Q_in, gamma);
+        compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
+        compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
         
-        vector<vector<double>> Res;
-        ResidualCal(n_faces, n_cells, f2c, n_f, A, V, Q_0, Q_in, Res);
-        double Res1, Res2;
+        // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
+        Eigen::MatrixXd Q1 = Q + dt_local.asDiagonal() * Res;
+        
+        // Stage 2: Recompute the residual at the intermediate state.
+        reconstruct(mesh.f2c, Q1, Q_L, Q_R, mesh.n_f, Q_in, gamma);
+        compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
+        compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
+        
+        // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
+        Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
 
-        vector<vector<double>> Q_1(n_cells, vector<double>(4, 0.0));
-        for (int i = 0; i < n_cells; ++i) {
-            Q_1[i][0] =  Q_0[i][0] + dt * Res[i][0];
-            Q_1[i][1] =  Q_0[i][1] + dt * Res[i][1];
-            Q_1[i][2] =  Q_0[i][2] + dt * Res[i][2];
-            Q_1[i][3] =  Q_0[i][3] + dt * Res[i][3];
-            Res1 =  Res1 + Res[i][0] * Res[i][0] / nc;
-        }
-    
-        ResidualCal(n_faces, n_cells, f2c, n_f, A, V, Q_1, Q_in, Res);
-
-        for (int i = 0; i < n_cells; ++i) {
-            Q_out[i][0] =  0.5 * (Q_0[i][0] + Q_1[i][0] + dt * Res[i][0]);
-            Q_out[i][1] =  0.5 * (Q_0[i][1] + Q_1[i][1] + dt * Res[i][1]);
-            Q_out[i][2] =  0.5 * (Q_0[i][2] + Q_1[i][2] + dt * Res[i][2]);
-            Q_out[i][3] =  0.5 * (Q_0[i][3] + Q_1[i][3] + dt * Res[i][3]);
-            Res2 =  Res2 + Res[i][0] * Res[i][0] / nc;
-        }
-
-        Res1 = sqrt(Res1);
-        Res2 = sqrt(Res2);
-        cout << "Res1 = " << Res1 << endl;
-        cout << "Res2 = " << Res2 << endl;
+        // (Optional) Print progress info every few steps.
+            if (step % 10 == 0) {
+                std::cout << "Completed step " << step << " of " << n_steps << std::endl;
+                // Compute L2 norms for each column of the residual
+                double res1 = Res.col(0).norm();
+                double res2 = Res.col(1).norm();
+                double res3 = Res.col(2).norm();
+                double res4 = Res.col(3).norm();   
+                std::cout << "Residuals: "
+                        << "res1 = " << res1 << ", "
+                        << "res2 = " << res2 << ", "
+                        << "res3 = " << res3 << ", "
+                        << "res4 = " << res4 << std::endl;
+            }
     }
-    
-#endif
+}
+
+#endif // SSPRK2_H
