@@ -8,20 +8,24 @@
 using namespace std;
 
 void SSPRK2(
-    const vector<vector<double>>& Mesh,   // Mesh data
+    // const vector<vector<double>>& Mesh,   // Mesh data
+    const int& n_faces,
+    const int& n_cells,
+    const vector<vector<double>>& f2c,
+    const vector<vector<double>>& n_f,
+    const vector<vector<double>>& A,
+    const vector<vector<double>>& V,
     const vector<vector<double>>& Q,      // Solution vector Q
     const vector<double>& Q_in,           // Initial condition vector Q_in
-    vector<vector<double>>& Q_out) {
+    vector<vector<double>>& Q_out
+) {
         double dt = 0.0005;
-
-        int n_faces = Mesh[0][1];
-        int n_cells = Mesh[0][2];
-        double nc = Mesh[0][2];
+        double nc = n_faces;
 
         vector<vector<double>> Q_0 = Q;
         
         vector<vector<double>> Res;
-        ResidualCal(Mesh, Q_0, Q_in, Res);
+        ResidualCal(n_faces, n_cells, f2c, n_f, A, V, Q_0, Q_in, Res);
         double Res1, Res2;
 
         vector<vector<double>> Q_1(n_cells, vector<double>(4, 0.0));
@@ -33,7 +37,7 @@ void SSPRK2(
             Res1 =  Res1 + Res[i][0] * Res[i][0] / nc;
         }
     
-        ResidualCal(Mesh, Q_1, Q_in, Res);
+        ResidualCal(n_faces, n_cells, f2c, n_f, A, V, Q_1, Q_in, Res);
 
         for (int i = 0; i < n_cells; ++i) {
             Q_out[i][0] =  0.5 * (Q_0[i][0] + Q_1[i][0] + dt * Res[i][0]);

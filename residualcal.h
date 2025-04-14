@@ -8,27 +8,23 @@
 using namespace std;
 
 void ResidualCal(
-    const vector<vector<double>>& Mesh,   // Mesh data
+    const int& n_faces,
+    const int& n_cells,
+    const vector<vector<double>>& f2c,
+    const vector<vector<double>>& n_f,
+    const vector<vector<double>>& A,
+    const vector<vector<double>>& V,
     const vector<vector<double>>& Q,      // Solution vector Q
     const vector<double>& Q_in,           // Initial condition vector Q_in
     vector<vector<double>>& Res           // Residual vector (output)
 ) {
-    int n_nodes = Mesh[0][0];
-    int n_faces = Mesh[0][1];
-    int n_cells = Mesh[0][2];
-
-    // Compute necessary intermediate data from Mesh
-    vector<vector<double>> f2c(Mesh.begin() + 1 + 2 * n_faces, Mesh.begin() + 1 + 3 * n_faces);  // Face to cell mapping
-    vector<vector<double>> A(Mesh.begin() + 1 + 4 * n_faces + n_cells + n_nodes, Mesh.begin() + 1 + 5 * n_faces + n_cells + n_nodes);  // Area
-    vector<vector<double>> V(Mesh.begin() + 1 + 5 * n_faces + n_cells + n_nodes, Mesh.begin() + 1 + 5 * n_faces + 2 * n_cells + n_nodes);  // Volume
-
     // Solution Reconstruction
     vector<vector<double>> Q_L, Q_R;
-    Reconstruct(Mesh, Q, Q_in, Q_L, Q_R);
+    Reconstruct(n_faces, f2c, n_f, Q, Q_in, Q_L, Q_R);
 
     // Flux computation
     vector<vector<double>> F;
-    FluxComp(Mesh, Q_L, Q_R, F);
+    FluxComp(n_faces, n_f, Q_L, Q_R, F);
 
     // Initialize the residual vector
     Res.resize(n_cells, vector<double>(4, 0.0));

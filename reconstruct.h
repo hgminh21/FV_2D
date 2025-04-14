@@ -7,18 +7,14 @@
 using namespace std;
 
 void Reconstruct(
-    const vector<vector<double>>& Mesh,
+    const int& n_faces,
+    const vector<vector<double>>& f2c,
+    const vector<vector<double>>& n_f,
     const vector<vector<double>>& Q,
     const vector<double>& Q_in,
     vector<vector<double>>& Q_L,
     vector<vector<double>>& Q_R
 ) {
-    int n_faces = Mesh[0][1];
-    int n_cells = Mesh[0][2];
-
-    vector<vector<double>> f2c(Mesh.begin() + 1 + 2 * n_faces, Mesh.begin() + 1 + 3 * n_faces);
-    vector<vector<double>> n_f(Mesh.begin() + 1 + 3 * n_faces, Mesh.begin() + 1 + 4 * n_faces);
-
     double gamma = 1.4;
 
     Q_L.resize(n_faces, vector<double>(4, 0.0));
@@ -56,6 +52,7 @@ void Reconstruct(
         if (c2 == -2) {
             Q_R[i] = Q_in;
         }
+        
     }
 }
 

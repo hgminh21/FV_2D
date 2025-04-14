@@ -7,15 +7,14 @@
 
 using namespace std;
 
-void FluxComp(const vector<vector<double>>& Mesh,
-              const vector<vector<double>>& Q_L,
-              const vector<vector<double>>& Q_R,
-              vector<vector<double>>& F) {
-
-    int n_faces = Mesh[0][1];
+void FluxComp(
+    const int& n_faces,
+    const vector<vector<double>>& n_f,
+    const vector<vector<double>>& Q_L,
+    const vector<vector<double>>& Q_R,
+    vector<vector<double>>& F
+) {
     double gamma = 1.4;
-
-    vector<vector<double>> n_f(Mesh.begin() + 1 + 3 * n_faces, Mesh.begin() + 1 + 4 * n_faces);
 
     F.resize(n_faces, vector<double>(4, 0.0));
 
