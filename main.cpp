@@ -33,20 +33,10 @@ int main() {
 
     // Time integration parameters
     double CFL = 0.5;
-    int n_steps = 100;
+    int n_steps = 1000;
 
     // Run time integration
     ssprk2(mesh, Q, Q_init, gamma, CFL, n_steps);
-
-    // Output final Q
-    ofstream out("Q_output.txt");
-    if (out) {
-        out << Q << endl;
-        out.close();
-        cout << "Q written to Q_output.txt" << endl;
-    } else {
-        cerr << "Error writing output file!" << endl;
-    }
 
     return 0;
 }

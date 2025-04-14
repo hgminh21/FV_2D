@@ -3,12 +3,14 @@
 
 #include <Eigen>
 #include <iostream>
+#include <filesystem>
 
 // Include the other header files required for reconstruction, flux computation, and residual computation.
 #include "reconstruct.h"
 #include "fluxcomp.h"
 #include "rescomp.h"
 #include "meshread.h"
+#include "writeout.h"
 
 // The SSP RK2 function performs the time-stepping loop for updating Q.
 // Parameters:
@@ -22,11 +24,14 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
+    Eigen::MatrixXd Q_out = Eigen::MatrixXd::Zero(mesh.r_node.rows(), 4);
     Eigen::VectorXd s_max_all(mesh.f2c.rows());
     Eigen::MatrixXd F(mesh.f2c.rows(), 4);
     Eigen::MatrixXd Res(mesh.V.rows(), 4);
     Eigen::VectorXd dt_local(mesh.V.rows());
     
+    std::filesystem::create_directory("sol");
+
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step < n_steps; ++step) {
         // Stage 1: Compute the residual using the current state Q.
@@ -46,7 +51,7 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
         Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
 
         // (Optional) Print progress info every few steps.
-            if (step % 10 == 0) {
+            if (step % 20 == 0) {
                 std::cout << "Completed step " << step << " of " << n_steps << std::endl;
                 // Compute L2 norms for each column of the residual
                 double res1 = Res.col(0).norm();
@@ -59,6 +64,26 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
                         << "res3 = " << res3 << ", "
                         << "res4 = " << res4 << std::endl;
             }
+
+            if (step % 100 == 0) {
+                // Compute Q_out
+                write_output(mesh, Q, gamma, Q_out);
+                // Concatenate r_node and Q_out side-by-side (column-wise)
+                Eigen::MatrixXd output(mesh.r_node.rows(), 6);
+                output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
+
+                std::string filename = "sol/Q_output_" + std::to_string(step) + ".dat";
+                std::ofstream out(filename);
+                if (out) {
+                    out << "# x y rho rho*u rho*v rho*E\n";
+                    out << output << "\n";
+                    out.close();
+                    std::cout << "Q written to " << filename << std::endl;
+                } else {
+                    std::cerr << "Error writing output file!" << std::endl;
+                }
+            } 
+
     }
 }
 
