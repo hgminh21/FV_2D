@@ -22,10 +22,15 @@ struct MeshData {
 
     MatrixXd r_f;     // Face midpoints (n_faces x 2)
     MatrixXd n_f;     // Face normal vectors (n_faces x 2)
-    VectorXd A;       // Face “areas” (or lengths in 2D) (n_faces)
+    VectorXd A;       // Face "areas" (or lengths in 2D) (n_faces)
     
     MatrixXd r_c;     // Cell centroids (n_cells x 2)
     VectorXd V;       // Cell volumes (or areas) (n_cells)
+
+    VectorXd Ixx;     // Moment/inertia-like quantity (n_cells)
+    VectorXd Iyy;     // Moment/inertia-like quantity (n_cells)
+    VectorXd Ixy;     // Moment/inertia-like quantity (n_cells)
+    VectorXd delta;   // Determinant-like quantity (n_cells)
 };
 
 // Function to read the mesh file, compute geometric data, and return a MeshData struct.
@@ -85,7 +90,7 @@ MeshData readMesh(const string &filename) {
     VectorXd xc_n = VectorXd::Zero(mesh.n_cells);
     VectorXd yc_n = VectorXd::Zero(mesh.n_cells);
     
-    // Compute face midpoints, normals, face “areas”, and contributions to cell volumes.
+    // Compute face midpoints, normals, face "areas", and contributions to cell volumes.
     for (int i = 0; i < mesh.n_faces; ++i) {
         // Adjust indices from one-indexed to zero-indexed.
         int c1 = mesh.f2c(i, 0) - 1;
@@ -105,7 +110,7 @@ MeshData readMesh(const string &filename) {
         mesh.n_f(i, 0) = r2(1) - r1(1);
         mesh.n_f(i, 1) = r1(0) - r2(0);
         
-        // Compute face “area” (or length in 2D) and normalize the normal.
+        // Compute face "area" (or length in 2D) and normalize the normal.
         mesh.A(i) = mesh.n_f.row(i).norm();
         mesh.n_f.row(i) /= mesh.A(i);
         
@@ -128,89 +133,111 @@ MeshData readMesh(const string &filename) {
     
     // Compute cell centroids from accumulated moments.
     for (int i = 0; i < mesh.n_cells; ++i) {
+        if (mesh.V(i) == 0) {
+            cerr << "Warning: Zero cell volume encountered for cell " << i << endl;
+            continue;
+        }
         mesh.r_c(i, 0) = (1.0 / 3.0) * (xc_n(i) / mesh.V(i));
         mesh.r_c(i, 1) = (1.0 / 3.0) * (yc_n(i) / mesh.V(i));
     }
 
-    std::ofstream file("wall.in");
+    // Compute moments for use in reconstruction.
+    VectorXd Ixx_temp = VectorXd::Zero(mesh.n_cells); 
+    VectorXd Iyy_temp = VectorXd::Zero(mesh.n_cells);
+    VectorXd Ixy_temp = VectorXd::Zero(mesh.n_cells);
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        int c1 = mesh.f2c(i, 0) - 1;
+        int c2 = mesh.f2c(i, 1) - 1;
+        if (c2 >= 0) {
+            double tempIxx = (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)) * (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)); 
+            double tempIyy = (mesh.r_c(c1, 1) - mesh.r_c(c2, 1)) * (mesh.r_c(c1, 1) - mesh.r_c(c2, 1));
+            double tempIxy = (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)) * (mesh.r_c(c1, 1) - mesh.r_c(c2, 1));
+            Ixx_temp(c1) += tempIxx;
+            Iyy_temp(c1) += tempIyy;
+            Ixy_temp(c1) += tempIxy;
+            Ixx_temp(c2) += tempIxx;
+            Iyy_temp(c2) += tempIyy;
+            Ixy_temp(c2) += tempIxy;
+        }
+        else {
+            double tempIxx = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 0) - mesh.r_f(i, 0));
+            double tempIyy = 4 * (mesh.r_c(c1, 1) - mesh.r_f(i, 1)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
+            double tempIxy = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
+            Ixx_temp(c1) += tempIxx;
+            Iyy_temp(c1) += tempIyy;
+            Ixy_temp(c1) += tempIxy;
+        }
+    }
+    
+    mesh.delta = Ixx_temp.array() * Iyy_temp.array() - Ixy_temp.array().square();
+    // Check for very small delta values before division
+    for (int i = 0; i < mesh.n_cells; ++i) {
+        if (abs(mesh.delta(i)) < 1e-12) {
+            cerr << "Warning: delta is very small for cell " << i << endl;
+        }
+    }
+    mesh.Ixx = Ixx_temp.array() / mesh.delta.array();
+    mesh.Iyy = Iyy_temp.array() / mesh.delta.array();
+    mesh.Ixy = Ixy_temp.array() / mesh.delta.array();
+
+    return mesh;
+}
+
+// Function to output (write) the mesh data to a text file.
+void outputMeshData(const MeshData &mesh, const string &filename) {
+    ofstream out(filename);
+    if (!out) {
+        cerr << "Error opening file " << filename << " for output." << endl;
+        return;
+    }
+    
+    out << "# Mesh Data Output\n";
+    out << "# n_nodes: " << mesh.n_nodes << "\n";
+    out << "# n_faces: " << mesh.n_faces << "\n";
+    out << "# n_cells: " << mesh.n_cells << "\n\n";
+    
+    out << "# Nodal Coordinates (r_node):\n" << mesh.r_node << "\n\n";
+    out << "# Face-to-Node Connectivity (f2n):\n" << mesh.f2n << "\n\n";
+    out << "# Face-to-Cell Connectivity (f2c):\n" << mesh.f2c << "\n\n";
+    out << "# Face Midpoints (r_f):\n" << mesh.r_f << "\n\n";
+    out << "# Face Normals (n_f):\n" << mesh.n_f << "\n\n";
+    out << "# Face Areas (A):\n" << mesh.A << "\n\n";
+    out << "# Cell Volumes (V):\n" << mesh.V << "\n\n";
+    out << "# Cell Centroids (r_c):\n" << mesh.r_c << "\n\n";
+    out << "# Ixx:\n" << mesh.Ixx << "\n\n";
+    out << "# Iyy:\n" << mesh.Iyy << "\n\n";
+    out << "# Ixy:\n" << mesh.Ixy << "\n\n";
+    out << "# delta:\n" << mesh.delta << "\n\n";
+    
+    out.close();
+}
+
+// Function to write wall face coordinates to a text file.
+void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename = "wall.txt") {
+    ofstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Error opening for writing.\n";
+        cerr << "Error opening " << filename << " for writing.\n";
+        return;
     }
 
-    VectorXd app = VectorXd::Zero(mesh.n_nodes);
-
     for (int i = 0; i < mesh.n_faces; ++i) {
-        if (mesh.f2c(i, 1) == 0) {
-            int n1 = mesh.f2n(i, 0) - 1;
-            int n2 = mesh.f2n(i, 1) - 1;
-            app(n1) += 1;
-            app(n2) += 1;
+        // Check if the second cell index indicates a wall (boundary)
+        if (mesh.f2c(i, 1) == -1) {
+            int node1 = mesh.f2n(i, 0) - 1;
+            int node2 = mesh.f2n(i, 1) - 1;
 
-            if (app(n1) < 2 || app(n2) < 2) {
-                Vector2d r1 = mesh.r_node.row(n1);
-                Vector2d r2 = mesh.r_node.row(n2);
-                file << r1(0) << " " << r1(1) << "\n";
-                file << r2(0) << " " << r2(1) << "\n";
-            }
+            // Get nodal coordinates.
+            Vector2d pt1 = mesh.r_node.row(node1);
+            Vector2d pt2 = mesh.r_node.row(node2);
+
+            file << pt1(0) << " " << pt1(1) << "\n";
+            file << pt2(0) << " " << pt2(1) << "\n";
+            file << "\n";  // Separate faces
         }
     }
 
     file.close();
-
-    std::cout << "Boundary face node coordinates written to wall.in" << std::endl;
-    return mesh;
+    cout << "Boundary face node coordinates written to " << filename << endl;
 }
-
-// // Function to output (write) the mesh data to a text file.
-// void outputMeshData(const MeshData &mesh, const string &filename) {
-//     ofstream out(filename);
-//     if (!out) {
-//         cerr << "Error opening file " << filename << " for output." << endl;
-//         return;
-//     }
-    
-//     out << "# Mesh Data Output\n";
-//     out << "# n_nodes: " << mesh.n_nodes << "\n";
-//     out << "# n_faces: " << mesh.n_faces << "\n";
-//     out << "# n_cells: " << mesh.n_cells << "\n\n";
-    
-//     out << "# Nodal Coordinates (r_node):\n" << mesh.r_node << "\n\n";
-//     out << "# Face-to-Node Connectivity (f2n):\n" << mesh.f2n << "\n\n";
-//     out << "# Face-to-Cell Connectivity (f2c):\n" << mesh.f2c << "\n\n";
-//     out << "# Face Midpoints (r_f):\n" << mesh.r_f << "\n\n";
-//     out << "# Face Normals (n_f):\n" << mesh.n_f << "\n\n";
-//     out << "# Face Areas (A):\n" << mesh.A << "\n\n";
-//     out << "# Cell Volumes (V):\n" << mesh.V << "\n\n";
-//     out << "# Cell Centroids (r_c):\n" << mesh.r_c << "\n\n";
-    
-//     out.close();
-// }
-
-// void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename = "wall.txt") {
-//     std::ofstream file(filename);
-//     if (!file.is_open()) {
-//         std::cerr << "Error opening " << filename << " for writing.\n";
-//         return;
-//     }
-
-//     for (int i = 0; i < mesh.n_faces; ++i) {
-//         if (mesh.f2c(i, 1) == -1) {
-//             int node1 = mesh.f2n(i, 0) - 1;
-//             int node2 = mesh.f2n(i, 1) - 1;
-
-//             // Get coordinates
-//             Vector2d pt1 = mesh.r_node.row(node1);
-//             Vector2d pt2 = mesh.r_node.row(node2);
-
-//             file << pt1(0) << " " << pt1(1) << "\n";
-//             file << pt2(0) << " " << pt2(1) << "\n";
-//             file << "\n";  // Separate faces
-//         }
-//     }
-
-//     file.close();
-//     std::cout << "Boundary face node coordinates written to " << filename << std::endl;
-// }
-
 
 #endif // MESHREAD_H

@@ -10,6 +10,7 @@ int main() {
     // Read mesh from file
     MeshData mesh = readMesh("grid_file.in");
     cout << "Finished read mesh data." << endl;
+    // outputMeshData(mesh, "meshdata.txt"); 
 
     int n_cells = mesh.V.rows();
     
@@ -33,10 +34,11 @@ int main() {
 
     // Time integration parameters
     double CFL = 1;
-    int n_steps = 2000;
+    int n_steps = 1;
+    int order = 2;
 
     // Run time integration
-    ssprk2(mesh, Q, Q_init, gamma, CFL, n_steps);
+    ssprk2(mesh, Q, Q_init, gamma, CFL, n_steps, order);
 
     return 0;
 }

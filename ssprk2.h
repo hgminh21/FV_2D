@@ -20,10 +20,12 @@
 //   gamma   : Specific heat ratio.
 //   dt      : Time step size.
 //   n_steps : Number of time steps to perform.
-void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in, double gamma, double CFL, int n_steps) {
+void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in, double gamma, double CFL, int n_steps, int order) {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
+    Eigen::MatrixXd dQ_L = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
+    Eigen::MatrixXd dQ_R = Eigen::MatrixXd::Zero(mesh.f2c.rows(), 4);
     Eigen::MatrixXd Q_out = Eigen::MatrixXd::Zero(mesh.r_node.rows(), 4);
     Eigen::VectorXd s_max_all(mesh.f2c.rows());
     Eigen::MatrixXd F(mesh.f2c.rows(), 4);
@@ -35,18 +37,22 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step < n_steps; ++step) {
         // Stage 1: Compute the residual using the current state Q.
-        reconstruct(mesh.f2c, Q, Q_L, Q_R, mesh.n_f, Q_in, gamma);
+        reconstruct(mesh.f2c, Q, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQ_L, dQ_R, mesh.n_f, Q_in, gamma, order);
         compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
         compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        
+        writeMatrixToFile(Q_L, "Q_L.txt");
+        writeMatrixToFile(Q_R, "Q_R.txt");
+
         // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
         Eigen::MatrixXd Q1 = Q + dt_local.asDiagonal() * Res;
-        
+
         // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh.f2c, Q1, Q_L, Q_R, mesh.n_f, Q_in, gamma);
+        reconstruct(mesh.f2c, Q1, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQ_L, dQ_R, mesh.n_f, Q_in, gamma, order);
         compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
         compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        
+        writeMatrixToFile(Q_L, "Q_L2.txt");
+        writeMatrixToFile(Q_R, "Q_R2.txt");
+
         // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
         Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
 
