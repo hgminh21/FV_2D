@@ -32,8 +32,8 @@ int main() {
     }
 
     // Time integration parameters
-    double CFL = 0.5;
-    int n_steps = 1000;
+    double CFL = 1;
+    int n_steps = 2000;
 
     // Run time integration
     ssprk2(mesh, Q, Q_init, gamma, CFL, n_steps);

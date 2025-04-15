@@ -65,24 +65,24 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
                         << "res4 = " << res4 << std::endl;
             }
 
-            if (step % 100 == 0) {
-                // Compute Q_out
-                write_output(mesh, Q, gamma, Q_out);
-                // Concatenate r_node and Q_out side-by-side (column-wise)
-                Eigen::MatrixXd output(mesh.r_node.rows(), 6);
-                output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
+            // if (step % 100 == 0) {
+            //     // Compute Q_out
+            //     write_output(mesh, Q, gamma, Q_out);
+            //     // Concatenate r_node and Q_out side-by-side (column-wise)
+            //     Eigen::MatrixXd output(mesh.r_node.rows(), 6);
+            //     output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
 
-                std::string filename = "sol/Q_output_" + std::to_string(step) + ".dat";
-                std::ofstream out(filename);
-                if (out) {
-                    out << "# x y rho rho*u rho*v rho*E\n";
-                    out << output << "\n";
-                    out.close();
-                    std::cout << "Q written to " << filename << std::endl;
-                } else {
-                    std::cerr << "Error writing output file!" << std::endl;
-                }
-            } 
+            //     std::string filename = "sol/Q_output_" + std::to_string(step) + ".dat";
+            //     std::ofstream out(filename);
+            //     if (out) {
+            //         out << "# x y rho rho*u rho*v rho*E\n";
+            //         out << output << "\n";
+            //         out.close();
+            //         std::cout << "Q written to " << filename << std::endl;
+            //     } else {
+            //         std::cerr << "Error writing output file!" << std::endl;
+            //     }
+            // } 
 
     }
 }
