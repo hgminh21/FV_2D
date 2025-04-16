@@ -101,7 +101,7 @@ void reconstruct(const MatrixXi &f2c,
             }
             // Free stream condition for second order (c2 == -2)
             if (c2 == -2) {
-                RowVector4d dQ = Q_in.transpose() - Q.row(c1);
+                RowVector4d dQ = Q_in.transpose() - Q.row(c1);      // Q ghost cell assume equal to Q inlet
                 double dx = 2.0 * (r_f(i, 0) - r_c(c1, 0));
                 double dy = 2.0 * (r_f(i, 1) - r_c(c1, 1));
                 Qx1_temp.row(c1) += dQ * dx * Iyy(c1) / delta(c1);
@@ -123,12 +123,12 @@ void reconstruct(const MatrixXi &f2c,
                 double ug = ui - 2.0 * vn * nx;
                 double vg = vi - 2.0 * vn * ny;
 
-                // Construct the reflected state Qg properly.
+                // Construct the ghost cell at wall boundary
                 RowVector4d Qg;
-                Qg(0) = rhoi;
-                Qg(1) = rhoi * ug;
+                Qg(0) = rhoi;           // Density is assume equal
+                Qg(1) = rhoi * ug;      
                 Qg(2) = rhoi * vg;
-                Qg(3) = pi / (gamma - 1.0) + 0.5 * rhoi * (ug * ug + vg * vg);
+                Qg(3) = pi / (gamma - 1.0) + 0.5 * rhoi * (ug * ug + vg * vg);  // Pressure is assume equal
 
                 RowVector4d dQ = Qg - Q.row(c1);
                 double dx = 2.0 * (r_f(i, 0) - r_c(c1, 0));
