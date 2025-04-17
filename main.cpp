@@ -34,7 +34,7 @@ int main() {
 
     // Time integration parameters
     double CFL = 1;
-    int n_steps = 1;
+    int n_steps = 100;
     int order = 2;
 
     // Run time integration

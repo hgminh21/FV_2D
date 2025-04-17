@@ -34,14 +34,25 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
     
     std::filesystem::create_directory("sol");
 
+    // Open file for writing (in append mode)
+    // std::ofstream outfile("sol/res_log.dat", std::ios::app);
+    std::ofstream outfile("sol/res_log.dat");
+    // Check if file is opened successfully
+    if (!outfile.is_open()) {
+        std::cerr << "Error opening file!" << std::endl;
+    }
+    outfile << "TITLE = \"Residual log\"\n";
+    outfile << "VARIABLES = \"Iteration\" \"Density\" \"X-momentum\" \"Y-momentum\" \"Total energy\" \n";
+    outfile << "DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE) \n";
+
     // Time-stepping loop using SSP RK2 method.
-    for (int step = 0; step < n_steps; ++step) {
+    for (int step = 0; step <= n_steps; ++step) {
         // Stage 1: Compute the residual using the current state Q.
         reconstruct(mesh.f2c, Q, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQ_L, dQ_R, mesh.n_f, Q_in, gamma, order);
         compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
         compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        writeMatrixToFile(Q_L, "Q_L.txt");
-        writeMatrixToFile(Q_R, "Q_R.txt");
+        // writeMatrixToFile(Q_L, "Q_L.txt");
+        // writeMatrixToFile(Q_R, "Q_R.txt");
 
         // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
         Eigen::MatrixXd Q1 = Q + dt_local.asDiagonal() * Res;
@@ -50,8 +61,8 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
         reconstruct(mesh.f2c, Q1, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQ_L, dQ_R, mesh.n_f, Q_in, gamma, order);
         compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
         compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        writeMatrixToFile(Q_L, "Q_L2.txt");
-        writeMatrixToFile(Q_R, "Q_R2.txt");
+        // writeMatrixToFile(Q_L, "Q_L2.txt");
+        // writeMatrixToFile(Q_R, "Q_R2.txt");
 
         // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
         Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
@@ -69,26 +80,33 @@ void ssprk2(const MeshData &mesh, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_i
                         << "res2 = " << res2 << ", "
                         << "res3 = " << res3 << ", "
                         << "res4 = " << res4 << std::endl;
+
+                // Save to file in the format: step res1 res2 res3 res4
+                outfile << step << " " << res1 << " " << res2 << " " << res3 << " " << res4 << std::endl;
             }
 
-            // if (step % 100 == 0) {
-            //     // Compute Q_out
-            //     write_output(mesh, Q, gamma, Q_out);
-            //     // Concatenate r_node and Q_out side-by-side (column-wise)
-            //     Eigen::MatrixXd output(mesh.r_node.rows(), 6);
-            //     output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
+            if (step % 500 == 0) {
+                // Compute Q_out
+                write_output(mesh, Q, gamma, Q_out);
+                // Concatenate r_node and Q_out side-by-side (column-wise)
+                Eigen::MatrixXd output(mesh.r_node.rows(), 6);
+                output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
 
-            //     std::string filename = "sol/Q_output_" + std::to_string(step) + ".dat";
-            //     std::ofstream out(filename);
-            //     if (out) {
-            //         out << "# x y rho rho*u rho*v rho*E\n";
-            //         out << output << "\n";
-            //         out.close();
-            //         std::cout << "Q written to " << filename << std::endl;
-            //     } else {
-            //         std::cerr << "Error writing output file!" << std::endl;
-            //     }
-            // } 
+                std::string filename = "sol/Q_output_" + std::to_string(step) + ".dat";
+                std::ofstream out(filename);
+                if (out) {
+                    out << "TITLE = \"Solution output\"\n";
+                    out << "VARIABLES = \"X\" \"Y\" \"rho\" \"u\" \"v\" \"p\" \n";
+                    out << "ZONE T = \"0\" \n";
+                    out << "SOLUTIONTIME = "+ std::to_string(step) + "\n";
+                    out << "DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE) \n";
+                    out << output << "\n";
+                    out.close();
+                    std::cout << "Q written to " << filename << std::endl;
+                } else {
+                    std::cerr << "Error writing output file!" << std::endl;
+                }
+            } 
 
     }
 }

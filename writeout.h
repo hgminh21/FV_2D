@@ -48,7 +48,7 @@ void write_output(const MeshData &mesh,
     VectorXd E = Q_out.col(3);
 
     VectorXd kinetic = 0.5 * rho.array() * (u.array().square() + v.array().square());
-    VectorXd p = (E.array() - kinetic.array()) / (gamma - 1.0);
+    VectorXd p = (E.array() - kinetic.array()) * (gamma - 1.0);
 
     // Overwrite Q_out with primitive variables: rho, u, v, p
     Q_out.col(0) = rho;

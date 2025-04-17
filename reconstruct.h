@@ -72,120 +72,113 @@ void reconstruct(const MatrixXi &f2c,
             }
         }
     } else { // second order reconstruction
-        // Temporary arrays for gradient estimation.
+        // Temporary arrays for gradient estimation
         MatrixXd Qx1_temp = MatrixXd::Zero(n_cells, 4);
         MatrixXd Qx2_temp = MatrixXd::Zero(n_cells, 4);
         MatrixXd Qy1_temp = MatrixXd::Zero(n_cells, 4);
         MatrixXd Qy2_temp = MatrixXd::Zero(n_cells, 4);
-
+    
         for (int i = 0; i < n_faces; ++i) {
             int c1 = f2c(i, 0) - 1;
             int c2 = f2c(i, 1) - 1;
-
-            // Interior face contributions (c2 >= 0)
+            const Vector2d rc1 = r_c.row(c1);
+            const Vector2d rf = r_f.row(i);
+            const Vector2d nf = n_f.row(i);
+    
+            RowVector4d dQ;
+            double dx, dy;
+    
             if (c2 >= 0) {
-                RowVector4d dQ = Q.row(c2) - Q.row(c1);
-                double dx = r_c(c2, 0) - r_c(c1, 0);
-                double dy = r_c(c2, 1) - r_c(c1, 1);
-
-                Qx1_temp.row(c1) += dQ * dx * Iyy(c1) / delta(c1);
-                Qx2_temp.row(c1) += dQ * dy * Ixy(c1) / delta(c1);
-                Qy1_temp.row(c1) += dQ * dy * Ixx(c1) / delta(c1);
-                Qy2_temp.row(c1) += dQ * dx * Ixy(c1) / delta(c1);
-
-                // For the other cell, subtract the contribution.
-                Qx1_temp.row(c2) += dQ * dx * Iyy(c2) / delta(c2);
-                Qx2_temp.row(c2) += dQ * dy * Ixy(c2) / delta(c2);
-                Qy1_temp.row(c2) += dQ * dy * Ixx(c2) / delta(c2);
-                Qy2_temp.row(c2) += dQ * dx * Ixy(c2) / delta(c2);
-            }
-            // Free stream condition for second order (c2 == -2)
-            if (c2 == -2) {
-                RowVector4d dQ = Q_in.transpose() - Q.row(c1);      // Q ghost cell assume equal to Q inlet
-                double dx = 2.0 * (r_f(i, 0) - r_c(c1, 0));
-                double dy = 2.0 * (r_f(i, 1) - r_c(c1, 1));
-                Qx1_temp.row(c1) += dQ * dx * Iyy(c1) / delta(c1);
-                Qx2_temp.row(c1) += dQ * dy * Ixy(c1) / delta(c1);
-                Qy1_temp.row(c1) += dQ * dy * Ixx(c1) / delta(c1);
-                Qy2_temp.row(c1) += dQ * dx * Ixy(c1) / delta(c1);
-            }
-            // No-slip wall condition (c2 == -1)
-            if (c2 == -1) {
-                double rhoi = Q(c1, 0);
-                double ui = Q(c1, 1) / rhoi;
-                double vi = Q(c1, 2) / rhoi;
-                // Use cell value Q(c1,3) for pressure
-                double pi = (Q(c1, 3) - 0.5 * rhoi * (ui * ui + vi * vi)) * (gamma - 1.0);
-
-                double nx = n_f(i, 0);
-                double ny = n_f(i, 1);
-                double vn = ui * nx + vi * ny;
-                double ug = ui - 2.0 * vn * nx;
-                double vg = vi - 2.0 * vn * ny;
-
-                // Construct the ghost cell at wall boundary
+                const Vector2d rc2 = r_c.row(c2);
+                dQ = Q.row(c2) - Q.row(c1);
+                dx = rc2(0) - rc1(0);
+                dy = rc2(1) - rc1(1);
+    
+                // Contribution to both cells
+                auto update = [&](int c, double dx, double dy) {
+                    Qx1_temp.row(c) += dQ * dx * Iyy(c);
+                    Qx2_temp.row(c) += dQ * dy * Ixy(c);
+                    Qy1_temp.row(c) += dQ * dy * Ixx(c);
+                    Qy2_temp.row(c) += dQ * dx * Ixy(c);
+                };
+                update(c1, dx, dy);
+                update(c2, dx, dy);
+            } 
+            else if (c2 == -2) { // Free stream condition
+                dQ = Q_in.transpose() - Q.row(c1);
+                dx = -2.0 * (rc1(0) - rf(0)) * nf(0);
+                dy = -2.0 * (rc1(1) - rf(1)) * nf(1);
+                Qx1_temp.row(c1) += dQ * dx * Iyy(c1);
+                Qx2_temp.row(c1) += dQ * dy * Ixy(c1);
+                Qy1_temp.row(c1) += dQ * dy * Ixx(c1);
+                Qy2_temp.row(c1) += dQ * dx * Ixy(c1);
+            } 
+            else if (c2 == -1) { // Wall boundary
+                double rho = Q(c1, 0);
+                double u = Q(c1, 1) / rho;
+                double v = Q(c1, 2) / rho;
+                double p = (Q(c1, 3) - 0.5 * rho * (u * u + v * v)) * (gamma - 1.0);
+    
+                double vn = u * nf(0) + v * nf(1);
+                double ug = u - 2.0 * vn * nf(0);
+                double vg = v - 2.0 * vn * nf(1);
+    
                 RowVector4d Qg;
-                Qg(0) = rhoi;           // Density is assume equal
-                Qg(1) = rhoi * ug;      
-                Qg(2) = rhoi * vg;
-                Qg(3) = pi / (gamma - 1.0) + 0.5 * rhoi * (ug * ug + vg * vg);  // Pressure is assume equal
-
-                RowVector4d dQ = Qg - Q.row(c1);
-                double dx = 2.0 * (r_f(i, 0) - r_c(c1, 0));
-                double dy = 2.0 * (r_f(i, 1) - r_c(c1, 1));
-                Qx1_temp.row(c1) += dQ * dx * Iyy(c1) / delta(c1);
-                Qx2_temp.row(c1) += dQ * dy * Ixy(c1) / delta(c1);
-                Qy1_temp.row(c1) += dQ * dy * Ixx(c1) / delta(c1);
-                Qy2_temp.row(c1) += dQ * dx * Ixy(c1) / delta(c1);
+                Qg << rho, rho * ug, rho * vg, p / (gamma - 1.0) + 0.5 * rho * (ug * ug + vg * vg);
+                dQ = Qg - Q.row(c1);
+                dx = -2.0 * (rc1(0) - rf(0)) * nf(0);
+                dy = -2.0 * (rc1(1) - rf(1)) * nf(1);
+    
+                Qx1_temp.row(c1) += dQ * dx * Iyy(c1);
+                Qx2_temp.row(c1) += dQ * dy * Ixy(c1);
+                Qy1_temp.row(c1) += dQ * dy * Ixx(c1);
+                Qy2_temp.row(c1) += dQ * dx * Ixy(c1);
             }
         }
-
-        // Compute gradients from temporary arrays.
+    
+        // Final gradient computation
         MatrixXd Qx = Qx1_temp - Qx2_temp;
         MatrixXd Qy = Qy1_temp - Qy2_temp;
-
-        // Use the computed gradients to reconstruct states and gradient corrections.
+    
         for (int i = 0; i < n_faces; ++i) {
             int c1 = f2c(i, 0) - 1;
             int c2 = f2c(i, 1) - 1;
-
-            double dfx = r_f(i, 0) - r_c(c1, 0);
-            double dfy = r_f(i, 1) - r_c(c1, 1);
+            const Vector2d rc1 = r_c.row(c1);
+            const Vector2d rf = r_f.row(i);
+    
+            double dfx = rf(0) - rc1(0);
+            double dfy = rf(1) - rc1(1);
             dQ_L.row(i) = Qx.row(c1) * dfx + Qy.row(c1) * dfy;
             Q_L.row(i) = Q.row(c1) + dQ_L.row(i);
-
+    
             if (c2 >= 0) {
-                dfx = r_f(i, 0) - r_c(c2, 0);
-                dfy = r_f(i, 1) - r_c(c2, 1);
+                const Vector2d rc2 = r_c.row(c2);
+                dfx = rf(0) - rc2(0);
+                dfy = rf(1) - rc2(1);
                 dQ_R.row(i) = Qx.row(c2) * dfx + Qy.row(c2) * dfy;
                 Q_R.row(i) = Q.row(c2) + dQ_R.row(i);
-            }
-
-            // No-slip wall condition (c2 == -1) for the final state
-            if (c2 == -1) {
+            } 
+            else if (c2 == -1) { // Wall BC final state
                 double rhoL = Q_L(i, 0);
                 double uL = Q_L(i, 1) / rhoL;
                 double vL = Q_L(i, 2) / rhoL;
                 double pL = (Q_L(i, 3) - 0.5 * rhoL * (uL * uL + vL * vL)) * (gamma - 1.0);
-
-                double nx = n_f(i, 0);
-                double ny = n_f(i, 1);
-                double vn = uL * nx + vL * ny;
-                double uR = uL - 2.0 * vn * nx;
-                double vR = vL - 2.0 * vn * ny;
-
+    
+                const Vector2d nf = n_f.row(i);
+                double vn = uL * nf(0) + vL * nf(1);
+                double uR = uL - 2.0 * vn * nf(0);
+                double vR = vL - 2.0 * vn * nf(1);
+    
                 Q_R(i, 0) = rhoL;
                 Q_R(i, 1) = rhoL * uR;
                 Q_R(i, 2) = rhoL * vR;
                 Q_R(i, 3) = pL / (gamma - 1.0) + 0.5 * rhoL * (uR * uR + vR * vR);
-            }
-            
-            // Free stream condition (c2 == -2)
-            if (c2 == -2) {
+            } 
+            else if (c2 == -2) {
                 Q_R.row(i) = Q_in.transpose();
             }
         }
-    }
+    }    
 }
 
 // Utility function to write a matrix to a text file.

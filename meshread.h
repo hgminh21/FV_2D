@@ -160,9 +160,14 @@ MeshData readMesh(const string &filename) {
             Ixy_temp(c2) += tempIxy;
         }
         else {
-            double tempIxx = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 0) - mesh.r_f(i, 0));
-            double tempIyy = 4 * (mesh.r_c(c1, 1) - mesh.r_f(i, 1)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
-            double tempIxy = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
+            // double tempIxx = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 0) - mesh.r_f(i, 0));
+            // double tempIyy = 4 * (mesh.r_c(c1, 1) - mesh.r_f(i, 1)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
+            // double tempIxy = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
+            double dxface = mesh.r_c(c1, 0) - mesh.r_f(i, 0);
+            double dyface = mesh.r_c(c1, 1) - mesh.r_f(i, 1);
+            double tempIxx = 4.0 * (dxface * mesh.n_f(i, 0)) * (dxface * mesh.n_f(i, 0));
+            double tempIyy = 4.0 * (dyface * mesh.n_f(i, 1)) * (dyface * mesh.n_f(i, 1));
+            double tempIxy = 4.0 * (dxface * mesh.n_f(i, 0)) * (dyface * mesh.n_f(i, 1));
             Ixx_temp(c1) += tempIxx;
             Iyy_temp(c1) += tempIyy;
             Ixy_temp(c1) += tempIxy;
@@ -213,12 +218,16 @@ void outputMeshData(const MeshData &mesh, const string &filename) {
 }
 
 // Function to write wall face coordinates to a text file.
-void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename = "wall.txt") {
+void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename) {
     ofstream file(filename);
     if (!file.is_open()) {
         cerr << "Error opening " << filename << " for writing.\n";
         return;
     }
+    file << "TITLE = \"Wall boundary\" \n";
+    file << "VARIABLES = \"X\" \"Y\" \n";
+    file << "Zone = \"Airfoil\" \n";
+    file << "DT=(DOUBLE DOUBLE) \n";
 
     for (int i = 0; i < mesh.n_faces; ++i) {
         // Check if the second cell index indicates a wall (boundary)
@@ -232,7 +241,6 @@ void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename 
 
             file << pt1(0) << " " << pt1(1) << "\n";
             file << pt2(0) << " " << pt2(1) << "\n";
-            file << "\n";  // Separate faces
         }
     }
 
