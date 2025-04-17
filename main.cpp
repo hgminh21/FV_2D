@@ -16,7 +16,7 @@ int main() {
     Solver solver;
 
     // Read mesh from file
-    initialize("flow2.in", mesh, flow, solver, Q_init, Q);
+    initialize("flow.in", mesh, flow, solver, Q_init, Q);
 
     // Run time integration
     ssprk2(mesh, solver, flow, Q, Q_init);

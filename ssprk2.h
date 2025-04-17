@@ -14,14 +14,6 @@
 #include "rescomp.h"
 #include "writeout.h"
 
-// The SSP RK2 function performs the time-stepping loop for updating Q.
-// Parameters:
-//   mesh    : MeshData structure containing geometric and connectivity data.
-//   Q       : Cell state matrix (n_cells x 4). This matrix is updated in place.
-//   Q_in    : Prescribed state for boundary conditions (Vector4d).
-//   gamma   : Specific heat ratio.
-//   dt      : Time step size.
-//   n_steps : Number of time steps to perform.
 void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
@@ -35,10 +27,6 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     Eigen::VectorXd dt_local(mesh.n_cells);
     
     std::filesystem::create_directory("sol");
-    double CFL = solver.CFL;
-    double order = solver.order;
-    double gamma = flow.gamma;
-    double type = flow.type;
 
     // Open file for writing (in append mode)
     // std::ofstream outfile("sol/res_log.dat", std::ios::app);
@@ -54,31 +42,27 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
-        reconstruct(mesh.f2c, Q, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQx, dQy, mesh.n_f, Q_in, gamma, order);
-        if (type == 1) {
-            compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
+        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver);
+        if (flow.type == 1) {
+            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
-        else if (type == 2) {
-            compute_fluxes_vis(Q_L, Q_R, mesh.n_f, dQx, dQy, mesh.f2c, mesh.r_c, mesh.r_f, flow, F, s_max_all);
+        else if (flow.type == 2) {
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all);
         }
-        compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        // writeMatrixToFile(Q_L, "Q_L.txt");
-        // writeMatrixToFile(Q_R, "Q_R.txt");
+        compute_residual(mesh, F, s_max_all, solver, Res, dt_local);
 
         // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
         Eigen::MatrixXd Q1 = Q + dt_local.asDiagonal() * Res;
 
         // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh.f2c, Q1, mesh.r_f, mesh.r_c, mesh.Ixx, mesh.Iyy, mesh.Ixy, mesh.delta, Q_L, Q_R, dQx, dQy, mesh.n_f, Q_in, gamma, order);
-        if (type == 1) {
-            compute_fluxes(Q_L, Q_R, mesh.n_f, gamma, F, s_max_all);
+        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver);
+        if (flow.type == 1) {
+            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
-        else if (type == 2) {
-            compute_fluxes_vis(Q_L, Q_R, mesh.n_f, dQx, dQy, mesh.f2c, mesh.r_c, mesh.r_f, flow, F, s_max_all);
+        else if (flow.type == 2) {
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all);
         }
-        compute_residual(mesh.f2c, mesh.A, mesh.V, F, s_max_all, CFL, Res, dt_local);
-        // writeMatrixToFile(Q_L, "Q_L2.txt");
-        // writeMatrixToFile(Q_R, "Q_R2.txt");
+        compute_residual(mesh, F, s_max_all, solver, Res, dt_local);
 
         // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
         Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
@@ -103,7 +87,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, gamma, Q_out);
+                write_output(mesh, Q, flow, solver, Q_out);
                 // Concatenate r_node and Q_out side-by-side (column-wise)
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);
                 output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
@@ -118,7 +102,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
                     out << "DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE) \n";
                     out << output << "\n";
                     out.close();
-                    std::cout << "Q written to " << filename << std::endl;
+                    std::cout << "Solutions written to " << filename << std::endl;
                 } else {
                     std::cerr << "Error writing output file!" << std::endl;
                 }
@@ -127,4 +111,4 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     }
 }
 
-#endif // SSPRK2_H
+#endif  // SSPRK2_H

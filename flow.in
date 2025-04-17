@@ -1,7 +1,7 @@
 [solver]
-order_accuracy = 1
-max_step = 1000
-moniter_step = 20
+order_accuracy = 2
+max_step = 100
+monitor_step = 20
 output_step = 100
 CFL = 1
 

@@ -9,8 +9,8 @@
 
 using namespace Eigen;
 using std::string;
-using std::cout;
-using std::endl;
+// using std::cout;
+// using std::endl;
 
 // Structures for flow and solver
 struct Flow {
@@ -69,7 +69,7 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, s
         if (section == "[solver]") {
             if (key == "order_accuracy") solver.order = std::stoi(value);
             else if (key == "max_step") solver.n_step = std::stoi(value);
-            else if (key == "moniter_step" || key == "monitor_step") solver.m_step = std::stoi(value);
+            else if (key == "monitor_step") solver.m_step = std::stoi(value);
             else if (key == "output_step") solver.o_step = std::stoi(value);
             else if (key == "CFL") solver.CFL = std::stod(value);
         } else if (section == "[meshfile]") {
@@ -124,22 +124,19 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
     std::cout << "  Number of nodes : " << mesh.n_nodes << std::endl;
     std::cout << "  Number of faces : " << mesh.n_faces << std::endl;
     std::cout << "  Number of cells : " << mesh.n_cells << std::endl; 
-    if (flow.type == 1) {
-        std::cout << "Equation : Euler" << std::endl;
-    }
-    else if (flow.type == 2) {
-        std::cout << "Equation : Navier-Stokes" << std::endl;
-    }
-    int n_cells = mesh.V.rows();
+    if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
+    else if (flow.type == 2) {std::cout << "Equation : Navier-Stokes" << std::endl;}
+    if (solver.order == 1) {std::cout << "Order of accuracy = 1" << std::endl;}
+    else if (solver.order == 2) {std::cout << "Order of accuracy = 2" << std::endl;}
 
     // Initial conserved variables
     double E = flow.p / (flow.gamma - 1.0) + 0.5 * flow.rho * (flow.u * flow.u + flow.v * flow.v);
     Q_init << flow.rho, flow.rho * flow.u, flow.rho * flow.v, E;
 
-    Q = MatrixXd::Zero(n_cells, 4);
-    for (int i = 0; i < n_cells; ++i) {
+    Q = MatrixXd::Zero(mesh.n_cells, 4);
+    for (int i = 0; i < mesh.n_cells; ++i) {
         Q.row(i) = Q_init.transpose();
     }
 }
 
-#endif
+#endif // INITIALIZE_H
