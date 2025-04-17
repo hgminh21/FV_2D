@@ -26,8 +26,8 @@ void reconstruct(const MatrixXi &f2c,
                  const VectorXd &delta,
                  MatrixXd &Q_L,
                  MatrixXd &Q_R,
-                 MatrixXd &dQ_L,
-                 MatrixXd &dQ_R,
+                 MatrixXd &dQx,
+                 MatrixXd &dQy,
                  const MatrixXd &n_f,
                  const Vector4d &Q_in,
                  double gamma,
@@ -114,17 +114,17 @@ void reconstruct(const MatrixXi &f2c,
                 Qy2_temp.row(c1) += dQ * dx * Ixy(c1);
             } 
             else if (c2 == -1) { // Wall boundary
-                double rho = Q(c1, 0);
-                double u = Q(c1, 1) / rho;
-                double v = Q(c1, 2) / rho;
-                double p = (Q(c1, 3) - 0.5 * rho * (u * u + v * v)) * (gamma - 1.0);
+                double rhoi = Q(c1, 0);
+                double ui = Q(c1, 1) / rhoi;
+                double vi = Q(c1, 2) / rhoi;
+                double pi = (Q(c1, 3) - 0.5 * rhoi * (ui * ui + vi * vi)) * (gamma - 1.0);
     
-                double vn = u * nf(0) + v * nf(1);
-                double ug = u - 2.0 * vn * nf(0);
-                double vg = v - 2.0 * vn * nf(1);
+                double vn = ui * nf(0) + vi * nf(1);
+                double ug = ui - 2.0 * vn * nf(0);
+                double vg = vi - 2.0 * vn * nf(1);
     
                 RowVector4d Qg;
-                Qg << rho, rho * ug, rho * vg, p / (gamma - 1.0) + 0.5 * rho * (ug * ug + vg * vg);
+                Qg << rhoi, rhoi * ug, rhoi * vg, pi / (gamma - 1.0) + 0.5 * rhoi * (ug * ug + vg * vg);
                 dQ = Qg - Q.row(c1);
                 dx = -2.0 * (rc1(0) - rf(0)) * nf(0);
                 dy = -2.0 * (rc1(1) - rf(1)) * nf(1);
@@ -137,8 +137,8 @@ void reconstruct(const MatrixXi &f2c,
         }
     
         // Final gradient computation
-        MatrixXd Qx = Qx1_temp - Qx2_temp;
-        MatrixXd Qy = Qy1_temp - Qy2_temp;
+        dQx = Qx1_temp - Qx2_temp;
+        dQy = Qy1_temp - Qy2_temp;
     
         for (int i = 0; i < n_faces; ++i) {
             int c1 = f2c(i, 0) - 1;
@@ -148,15 +148,13 @@ void reconstruct(const MatrixXi &f2c,
     
             double dfx = rf(0) - rc1(0);
             double dfy = rf(1) - rc1(1);
-            dQ_L.row(i) = Qx.row(c1) * dfx + Qy.row(c1) * dfy;
-            Q_L.row(i) = Q.row(c1) + dQ_L.row(i);
+            Q_L.row(i) = Q.row(c1) + dQx.row(c1) * dfx + dQy.row(c1) * dfy;
     
             if (c2 >= 0) {
                 const Vector2d rc2 = r_c.row(c2);
                 dfx = rf(0) - rc2(0);
                 dfy = rf(1) - rc2(1);
-                dQ_R.row(i) = Qx.row(c2) * dfx + Qy.row(c2) * dfy;
-                Q_R.row(i) = Q.row(c2) + dQ_R.row(i);
+                Q_R.row(i) = Q.row(c2) + dQx.row(c2) * dfx + dQy.row(c2) * dfy;
             } 
             else if (c2 == -1) { // Wall BC final state
                 double rhoL = Q_L(i, 0);

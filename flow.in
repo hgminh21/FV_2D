@@ -1,0 +1,17 @@
+[solver]
+order_accuracy = 1
+max_step = 1000
+moniter_step = 20
+output_step = 100
+CFL = 1
+
+[meshfile]
+file = ./grid_file.in
+
+[flow]
+type = 1
+rho = 1.4
+u = 0.85
+v = 0
+p = 1
+gamma = 1.4
