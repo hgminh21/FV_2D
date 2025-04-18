@@ -1,3 +1,0 @@
-C:/Users/minhm/OneDrive/Desktop/FV_2D/build/CMakeFiles/FV_2D.dir
-C:/Users/minhm/OneDrive/Desktop/FV_2D/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/minhm/OneDrive/Desktop/FV_2D/build/CMakeFiles/ZERO_CHECK.dir
