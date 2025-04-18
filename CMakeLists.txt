@@ -15,4 +15,4 @@ endif()
 add_executable(FV_2D main.cpp)
 
 # Include Eigen headers
-target_include_directories(FV_2D PRIVATE C:/Users/minhm/Downloads/eigen-3.4.0)
+target_include_directories(FV_2D PRIVATE /path/to/eigen)
