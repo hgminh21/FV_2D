@@ -16,3 +16,6 @@ add_executable(FV_2D main.cpp)
 
 # Include Eigen headers
 target_include_directories(FV_2D PRIVATE /path/to/eigen)
+
+# Set the output directory for the executable
+set_target_properties(FV_2D PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output)
