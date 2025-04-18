@@ -20,7 +20,8 @@ void compute_fluxes(const MeshData &mesh,
                     VectorXd &s_max_all) // NEW OUTPUT
 
 {
-    MatrixXd F_local = MatrixXd::Zero(mesh.n_faces, 4);
+    F.setZero();
+    // MatrixXd F_local = MatrixXd::Zero(mesh.n_faces, 4);
     
     for (int i = 0; i < mesh.n_faces; ++i) {
         double nx = mesh.n_f(i, 0);
@@ -71,12 +72,17 @@ void compute_fluxes(const MeshData &mesh,
         double s_max = max(abs(vnL) + cL, abs(vnR) + cR);
         s_max_all(i) = s_max;
 
-        F_local(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
-        F_local(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
-        F_local(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
-        F_local(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
+        F(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
+        F(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
+        F(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
+        F(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
+
+        // F_local(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
+        // F_local(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
+        // F_local(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
+        // F_local(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
     }
-    F = F_local;
+    // F = F_local;
 }
 
 #endif  // FLUXCOMP_H

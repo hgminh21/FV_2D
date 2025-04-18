@@ -18,8 +18,16 @@ void reconstruct(const MeshData &mesh,
                  MatrixXd &dQy,
                  const Vector4d &Q_in,
                  const Flow &flow,
-                 const Solver &solver)
+                 const Solver &solver,
+                 MatrixXd &Qx1_temp,
+                 MatrixXd &Qx2_temp,
+                 MatrixXd &Qy1_temp,
+                 MatrixXd &Qy2_temp)
 {
+    Qx1_temp.setZero();
+    Qx2_temp.setZero();
+    Qy1_temp.setZero();
+    Qy2_temp.setZero();
 
     if (solver.order == 1.0) { // first order reconstruction
         for (int i = 0; i < mesh.n_faces; ++i) {
@@ -58,10 +66,10 @@ void reconstruct(const MeshData &mesh,
         }
     } else { // second order reconstruction
         // Temporary arrays for gradient estimation
-        MatrixXd Qx1_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        MatrixXd Qx2_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        MatrixXd Qy1_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        MatrixXd Qy2_temp = MatrixXd::Zero(mesh.n_cells, 4);
+        // MatrixXd Qx1_temp = MatrixXd::Zero(mesh.n_cells, 4);
+        // MatrixXd Qx2_temp = MatrixXd::Zero(mesh.n_cells, 4);
+        // MatrixXd Qy1_temp = MatrixXd::Zero(mesh.n_cells, 4);
+        // MatrixXd Qy2_temp = MatrixXd::Zero(mesh.n_cells, 4);
     
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;

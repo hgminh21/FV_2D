@@ -26,6 +26,11 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     Eigen::MatrixXd Res(mesh.n_cells, 4);
     Eigen::VectorXd dt_local(mesh.n_cells);
     
+    MatrixXd Qx1_temp = MatrixXd::Zero(mesh.n_cells, 4);
+    MatrixXd Qx2_temp = MatrixXd::Zero(mesh.n_cells, 4);
+    MatrixXd Qy1_temp = MatrixXd::Zero(mesh.n_cells, 4);
+    MatrixXd Qy2_temp = MatrixXd::Zero(mesh.n_cells, 4);
+
     std::filesystem::create_directory("sol");
 
     // Open file for writing (in append mode)
@@ -35,14 +40,11 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     if (!outfile.is_open()) {
         std::cerr << "Error opening file!" << std::endl;
     }
-    outfile << "TITLE = \"Residual log\"\n";
-    outfile << "VARIABLES = \"Iteration\" \"Density\" \"X-momentum\" \"Y-momentum\" \"Total energy\" \n";
-    outfile << "DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE) \n";
 
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
-        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver);
+        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
         if (flow.type == 1) {
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
@@ -55,7 +57,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
         Eigen::MatrixXd Q1 = Q + dt_local.asDiagonal() * Res;
 
         // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver);
+        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
         if (flow.type == 1) {
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
@@ -87,7 +89,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, flow, solver, Q_out);
+                write_output(mesh, Q, flow, solver, Q_in, Q_out);
                 // Concatenate r_node and Q_out side-by-side (column-wise)
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);
                 output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
@@ -99,8 +101,13 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
                     out << "VARIABLES = \"X\" \"Y\" \"rho\" \"u\" \"v\" \"p\" \n";
                     out << "ZONE T = \"0\" \n";
                     out << "SOLUTIONTIME = "+ std::to_string(step) + "\n";
+                    out << "NODES = "+std::to_string(mesh.n_nodes) + ", ";
+                    out << "ELEMENTS = "+std::to_string(mesh.c2n_tri.rows()) + ", ";
+                    out << "ZONETYPE=FETriangle \n";
+                    out << "DATAPACKING=POINT \n" ;
                     out << "DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE) \n";
                     out << output << "\n";
+                    out << mesh.c2n_tri << "\n";
                     out.close();
                     std::cout << "Solutions written to " << filename << std::endl;
                 } else {

@@ -1,8 +1,8 @@
 [solver]
 order_accuracy = 2
-max_step = 100
-monitor_step = 20
-output_step = 100
+max_step = 50000
+monitor_step = 100
+output_step = 2500
 CFL = 1
 
 [meshfile]

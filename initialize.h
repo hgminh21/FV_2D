@@ -119,11 +119,7 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
     // Load mesh
     mesh = readMesh(mesh_filename);
     cout << "Finished reading mesh from " << mesh_filename << endl;
-    // Print mesh summary
-    std::cout << "Mesh Summary:" << std::endl;
-    std::cout << "  Number of nodes : " << mesh.n_nodes << std::endl;
-    std::cout << "  Number of faces : " << mesh.n_faces << std::endl;
-    std::cout << "  Number of cells : " << mesh.n_cells << std::endl; 
+
     if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
     else if (flow.type == 2) {std::cout << "Equation : Navier-Stokes" << std::endl;}
     if (solver.order == 1) {std::cout << "Order of accuracy = 1" << std::endl;}

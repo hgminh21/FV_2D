@@ -7,6 +7,12 @@
 #include <string>
 #include <Eigen>
 
+#include <vector>
+#include <array>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+
 using namespace std;
 using namespace Eigen;
 
@@ -31,6 +37,9 @@ struct MeshData {
     VectorXd Iyy;     // Moment/inertia-like quantity (n_cells)
     VectorXd Ixy;     // Moment/inertia-like quantity (n_cells)
     VectorXd delta;   // Determinant-like quantity (n_cells)
+
+    MatrixXi c2n_tri; // Triangulated cell-to-node connectivity
+
 };
 
 // Function to read the mesh file, compute geometric data, and return a MeshData struct.
@@ -47,9 +56,16 @@ MeshData readMesh(const string &filename) {
         exit(1);
     }
 
+    cout << "Reading mesh file ..." << endl;
+
     // Read mesh header data
     in >> mesh.n_nodes >> mesh.n_faces >> mesh.n_cells;
     
+    // Print mesh summary
+    cout << "  Number of nodes : " << mesh.n_nodes << endl;
+    cout << "  Number of faces : " << mesh.n_faces << endl;
+    cout << "  Number of cells : " << mesh.n_cells << endl; 
+
     // Resize containers appropriately.
     mesh.r_node.resize(mesh.n_nodes, 2);
     mesh.f2n.resize(mesh.n_faces, 2);
@@ -185,6 +201,68 @@ MeshData readMesh(const string &filename) {
     mesh.Iyy = Iyy_temp.array() / mesh.delta.array();
     mesh.Ixy = Ixy_temp.array() / mesh.delta.array();
 
+    // ---- Triangulate cells and fill mesh.c2n_tri ----
+    cout << "Triangulating mesh file ..." << endl;
+
+    // --- Optimized triangulation of cells with Eigen output ---
+    vector<vector<int>> cell_to_faces(mesh.n_cells);
+
+    // Step 1: Map each cell to its faces
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        for (int s = 0; s < 2; ++s) {
+            int c = mesh.f2c(i, s) - 1;
+            if (c >= 0) cell_to_faces[c].push_back(i);
+        }
+    }
+
+    // Step 2: Temporary triangle storage using vector
+    vector<array<int, 3>> temp_triangles;
+
+    // Buffers reused per cell
+    unordered_map<int, int> next_node;
+    vector<int> ordered_nodes;
+
+    for (int c = 0; c < mesh.n_cells; ++c) {
+        next_node.clear();
+        ordered_nodes.clear();
+
+        const auto& faces = cell_to_faces[c];
+
+        // Build "next node" mapping from face edges
+        for (int f : faces) {
+            int n0 = mesh.f2n(f, 0);
+            int n1 = mesh.f2n(f, 1);
+            if (mesh.f2c(f, 0) - 1 == c)
+                next_node[n0] = n1;
+            else
+                next_node[n1] = n0;
+        }
+
+        // Reconstruct ordered node loop
+        int start = next_node.begin()->first;
+        int curr = start;
+
+        do {
+            ordered_nodes.push_back(curr);
+            curr = next_node[curr];
+        } while (curr != start && ordered_nodes.size() <= faces.size() + 1);
+
+        // Fan triangulation
+        for (int i = 1; i + 1 < ordered_nodes.size(); ++i) {
+            temp_triangles.push_back({ordered_nodes[0], ordered_nodes[i], ordered_nodes[i + 1]});
+        }
+    }
+
+    // Step 3: Transfer to Eigen::MatrixXi
+    int n_tri = temp_triangles.size();
+    mesh.c2n_tri.resize(n_tri, 3);
+    for (int i = 0; i < n_tri; ++i) {
+        mesh.c2n_tri(i, 0) = temp_triangles[i][0];
+        mesh.c2n_tri(i, 1) = temp_triangles[i][1];
+        mesh.c2n_tri(i, 2) = temp_triangles[i][2];
+    }
+    cout << "Completed triangulation." << endl;
+
     return mesh;
 }
 
@@ -213,39 +291,9 @@ void outputMeshData(const MeshData &mesh, const string &filename) {
     out << "# Iyy:\n" << mesh.Iyy << "\n\n";
     out << "# Ixy:\n" << mesh.Ixy << "\n\n";
     out << "# delta:\n" << mesh.delta << "\n\n";
+    out << "# Triangulated Cell-to-Node Connectivity (c2n_tri): \n" << mesh.c2n_tri << "\n\n";
     
     out.close();
-}
-
-// Function to write wall face coordinates to a text file.
-void writeWallFaceCoordinates(const MeshData &mesh, const std::string &filename) {
-    ofstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error opening " << filename << " for writing.\n";
-        return;
-    }
-    file << "TITLE = \"Wall boundary\" \n";
-    file << "VARIABLES = \"X\" \"Y\" \n";
-    file << "Zone = \"Airfoil\" \n";
-    file << "DT=(DOUBLE DOUBLE) \n";
-
-    for (int i = 0; i < mesh.n_faces; ++i) {
-        // Check if the second cell index indicates a wall (boundary)
-        if (mesh.f2c(i, 1) == -1) {
-            int node1 = mesh.f2n(i, 0) - 1;
-            int node2 = mesh.f2n(i, 1) - 1;
-
-            // Get nodal coordinates.
-            Vector2d pt1 = mesh.r_node.row(node1);
-            Vector2d pt2 = mesh.r_node.row(node2);
-
-            file << pt1(0) << " " << pt1(1) << "\n";
-            file << pt2(0) << " " << pt2(1) << "\n";
-        }
-    }
-
-    file.close();
-    cout << "Boundary face node coordinates written to " << filename << endl;
 }
 
 #endif // MESHREAD_H
