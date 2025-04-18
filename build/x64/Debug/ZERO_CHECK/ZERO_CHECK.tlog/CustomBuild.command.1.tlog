@@ -1,0 +1,10 @@
+^C:\USERS\MINHM\ONEDRIVE\DESKTOP\FV_2D\BUILD\CMAKEFILES\5D18A38309AD1F8BCA182D08E2A0C989\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/minhm/OneDrive/Desktop/FV_2D -BC:/Users/minhm/OneDrive/Desktop/FV_2D/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/minhm/OneDrive/Desktop/FV_2D/build/FV_2D.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

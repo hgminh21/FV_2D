@@ -8,7 +8,7 @@
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
-                "-I${fileDirname}\\lib\\eigen-3.4.0\\Eigen",
+                "-IC:\\Users\\minhm\\Downloads\\eigen-3.4.0",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],
