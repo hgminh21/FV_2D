@@ -1,7 +1,7 @@
 #ifndef VISFLUXCOMP_H
 #define VISFLUXCOMP_H
 
-#include <Eigen>
+#include <Eigen/Dense>
 #include <cmath>
 #include <algorithm>
 #include <iostream>  // For debug prints if needed
@@ -21,15 +21,19 @@ void compute_fluxes_vis(const MeshData &mesh,
                         const MatrixXd &dQy,
                         const Flow &flow,  // pass by const reference
                         MatrixXd &F,
-                        VectorXd &s_max_all)
+                        VectorXd &s_max_all,
+                        MatrixXd &F_viscous,
+                        MatrixXd &Q_f,
+                        MatrixXd &dQ_fx,
+                        MatrixXd &dQ_fy)
 {
     // Inviscid part
     compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
 
-    MatrixXd F_viscous = MatrixXd::Zero(mesh.n_faces, 4);
-    MatrixXd Q_f = MatrixXd::Zero(mesh.n_faces, 4);
-    MatrixXd dQ_fx = MatrixXd::Zero(mesh.n_faces, 4);
-    MatrixXd dQ_fy = MatrixXd::Zero(mesh.n_faces, 4);
+    F_viscous.setZero();
+    Q_f.setZero();
+    dQ_fx.setZero();
+    dQ_fy.setZero();
     double dux, duy, dvx, dvy, dTx, dTy;
 
     for (int i = 0; i < mesh.n_faces; ++i) {

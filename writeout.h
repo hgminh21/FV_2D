@@ -1,7 +1,7 @@
 #ifndef WRITEOUT_H
 #define WRITEOUT_H
 
-#include <Eigen>
+#include <Eigen/Dense>
 #include "meshread.h"
 #include "initialize.h"
 

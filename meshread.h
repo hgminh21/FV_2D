@@ -5,7 +5,7 @@
 #include <fstream>
 #include <cstdlib>    // For exit()
 #include <string>
-#include <Eigen>
+#include <Eigen/Dense>
 
 #include <vector>
 #include <array>

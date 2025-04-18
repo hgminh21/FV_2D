@@ -1,6 +1,7 @@
 #ifndef INITIALIZE_H
 #define INITIALIZE_H
 
+#include <Eigen/Dense>
 #include <iostream>
 #include <fstream>
 #include <sstream>

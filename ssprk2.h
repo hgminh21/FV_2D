@@ -1,7 +1,7 @@
 #ifndef SSPRK2_H
 #define SSPRK2_H
 
-#include <Eigen>
+#include <Eigen/Dense>
 #include <iostream>
 #include <filesystem>
 
@@ -31,6 +31,11 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
     MatrixXd Qy1_temp = MatrixXd::Zero(mesh.n_cells, 4);
     MatrixXd Qy2_temp = MatrixXd::Zero(mesh.n_cells, 4);
 
+    MatrixXd F_viscous = MatrixXd::Zero(mesh.n_faces, 4);
+    MatrixXd Q_f = MatrixXd::Zero(mesh.n_faces, 4);
+    MatrixXd dQ_fx = MatrixXd::Zero(mesh.n_faces, 4);
+    MatrixXd dQ_fy = MatrixXd::Zero(mesh.n_faces, 4);
+
     std::filesystem::create_directory("sol");
 
     // Open file for writing (in append mode)
@@ -49,7 +54,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy);
         }
         compute_residual(mesh, F, s_max_all, solver, Res, dt_local);
 
@@ -62,7 +67,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Eigen:
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy);
         }
         compute_residual(mesh, F, s_max_all, solver, Res, dt_local);
 

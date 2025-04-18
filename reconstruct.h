@@ -1,7 +1,7 @@
 #ifndef RECONSTRUCT_H
 #define RECONSTRUCT_H
 
-#include <Eigen>
+#include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
 
@@ -65,11 +65,6 @@ void reconstruct(const MeshData &mesh,
             }
         }
     } else { // second order reconstruction
-        // Temporary arrays for gradient estimation
-        // MatrixXd Qx1_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        // MatrixXd Qx2_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        // MatrixXd Qy1_temp = MatrixXd::Zero(mesh.n_cells, 4);
-        // MatrixXd Qy2_temp = MatrixXd::Zero(mesh.n_cells, 4);
     
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;
