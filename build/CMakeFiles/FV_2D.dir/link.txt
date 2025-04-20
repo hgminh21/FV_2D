@@ -1,1 +1,0 @@
-g++ -march=haswell CMakeFiles/FV_2D.dir/main.cpp.o -o /home/h728t025/work/programs/bin/FV_2D
