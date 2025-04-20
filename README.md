@@ -1,13 +1,14 @@
 # FV_2D
 
-Dependencies: Eigen
+A 2D finite volume solver.
 
-How to build the project 
+## Dependencies
 
-mkdir build && cd build 
+- [Eigen](https://eigen.tuxfamily.org/) (header-only library)
+
+## Build Instructions
+
+```bash
+mkdir build && cd build
 cmake ..
 cmake --build .
-
-How to run 
-
-./FV_2D ./flow.in
