@@ -4,18 +4,19 @@ project(FV_2D VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_COMPILER g++)
 
 # Set compiler-specific flags
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -ffast-math -funroll-loops")
-endif()
+#if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -ffast-math -funroll-loops")
+#endif()
 
 # Add the executable
 add_executable(FV_2D main.cpp)
 
 # Include Eigen headers
-target_include_directories(FV_2D PRIVATE /path/to/eigen)
+target_include_directories(FV_2D PRIVATE /home/h728t025/work/bin/eigen-3.4.0)
 
 # Set the output directory for the executable
-set_target_properties(FV_2D PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output)
+set_target_properties(FV_2D PROPERTIES RUNTIME_OUTPUT_DIRECTORY /home/h728t025/work/programs/bin)

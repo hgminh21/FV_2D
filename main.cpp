@@ -5,11 +5,18 @@
 #include "initialize.h"
 #include "meshread.h"
 #include "ssprk2.h"
+#include "implicit.h"
 
 using namespace std;
 using namespace Eigen;
 
 int main(int argc, char* argv[]) {
+
+    cout << "============================= UNIVERSITY OF KANSAS =============================" << endl;
+    cout << "=========================== FINITE VOLUME CFD SOLVER ===========================" << endl;
+    cout << "=============================== By Hoang Minh To ===============================" << endl;
+    
+
     // Check if the user has provided an input file as an argument
     if (argc < 2) {
         cerr << "Error: Please specify the input file path as a command-line argument." << endl;
@@ -24,12 +31,24 @@ int main(int argc, char* argv[]) {
     MeshData mesh;
     Flow flow;
     Solver solver;
-
+    Time time;
+    
+    cout << "Initializing..." << endl;
     // Read mesh from the file specified in the terminal argument
-    initialize(input_file, mesh, flow, solver, Q_init, Q);
+    initialize(input_file, mesh, flow, solver, time, Q_init, Q);
+    cout << "Finished initializing." << endl;
 
+    cout << "================================================================================" << endl;
+    cout << "Simulation started." << endl;
     // Run time integration
-    ssprk2(mesh, solver, flow, Q, Q_init);
-
+    if (time.method == "implicit") {
+        // Perform tasks for the implicit method
+        implicit_scheme(mesh, solver, flow, time, Q, Q_init);
+    } else {
+        // Handle other methods or default case
+        ssprk2(mesh, solver, flow, time, Q, Q_init);
+    }
+    cout << "Simulation completed." << endl;
+    cout << "================================================================================" << endl;
     return 0;
 }

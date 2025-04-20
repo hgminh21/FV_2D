@@ -15,3 +15,10 @@ u = 0.85
 v = 0
 p = 1
 gamma = 1.4
+
+[time]
+dt = 1e-4
+use_cfl = 0
+CFL = 1
+method = implicit
+local_dt = 0

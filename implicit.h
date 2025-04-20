@@ -1,9 +1,11 @@
-#ifndef SSPRK2_H
-#define SSPRK2_H
+#ifndef IMPLICIT_H
+#define IMPLICIT_H
 
 #include <Eigen/Dense>
 #include <iostream>
 #include <filesystem>
+#include <Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
 
 // Include the other header files required for reconstruction, flux computation, and residual computation.
 #include "meshread.h"
@@ -12,31 +14,48 @@
 #include "fluxcomp.h"
 #include "visfluxcomp.h"
 #include "rescomp.h"
+#include "resgrad.h"
 #include "writeout.h"
 
-void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
+void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flow, const Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) 
+{
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQx = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd dQy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Q_out = Eigen::MatrixXd::Zero(mesh.n_nodes, 4);
+    Eigen::MatrixXd dQt = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+
     Eigen::VectorXd s_max_all(mesh.n_faces);
     Eigen::MatrixXd F(mesh.n_faces, 4);
     Eigen::MatrixXd Res(mesh.n_cells, 4);
     Eigen::VectorXd dt_local(mesh.n_cells);
-    Eigen::MatrixXd Q1 = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     
     Eigen::MatrixXd Qx1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Qx2_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Qy1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Qy2_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
 
+    Eigen::MatrixXd Resx1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd Resx2_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd Resy1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd Resy2_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+
     Eigen::MatrixXd F_viscous = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd Q_f = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fx = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fy = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
 
+    Eigen::MatrixXd dResx = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd dResy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+
+    Eigen::MatrixXd A_im1 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
+    Eigen::MatrixXd A_im2 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
+    Eigen::MatrixXd A_im3 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
+    Eigen::MatrixXd A_im4 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
+    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(mesh.n_cells, mesh.n_cells);
+    
     std::filesystem::create_directory("sol");
 
     // Open file for writing (in append mode)
@@ -47,7 +66,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
         std::cerr << "Error opening file!" << std::endl;
     }
 
-    // Time-stepping loop using SSP RK2 method.
+    // Time-stepping loop using implicit method
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
         reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
@@ -59,43 +78,69 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
         }
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
 
-        // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
         if (time.use_cfl == 1) {    // Use CFL condition
             if (time.local_dt == 0) { // Global time step
                 double dt_glob = dt_local.minCoeff();
-                Q1 = Q + dt_glob * Res;
+                I = 1.0 / dt_glob * I;
             }
             else {  // Local time step
-                Q1 = Q + dt_local.asDiagonal() * Res;
-            }
-        }
-        else {  // Use fixed time step
-            Q1 = Q + time.dt * Res;
-        }
-
-        // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
-        if (flow.type == 1) {
-            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
-        }
-        else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy);
-        }
-        compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
-
-        // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
-        if (time.use_cfl == 1) {    // Use CFL condition
-            if (time.local_dt == 0) { // Global time step
-                double dt_glob = dt_local.minCoeff();
-                Q = 0.5 * Q + 0.5 * (Q1 + dt_glob * Res);
-            }
-            else {  // Local time step
-                Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
+                I = dt_local.cwiseInverse().asDiagonal();
             }
         }
         else {
-            Q = 0.5 * Q + 0.5 * (Q1 + time.dt * Res);
+            I = 1.0 / time.dt * I;
         }
+
+        res_reconstruct(mesh, Res, F, dResx, dResy, dQx, dQy, A_im1, A_im2, A_im3, A_im4, Resx1_temp, Resx2_temp, Resy1_temp, Resy2_temp, I);
+        std::cout << "check point 1" << std::endl;
+        // // Stage 2: Solve the implicit system using the residuals.
+        // -- convert to sparse --
+        using SpMat = Eigen::SparseMatrix<double>;
+        SpMat A1 = A_im1.sparseView();
+        SpMat A2 = A_im2.sparseView();
+        SpMat A3 = A_im3.sparseView();
+        SpMat A4 = A_im4.sparseView();
+
+        // -- set up BiCGSTAB solver type with diagonal preconditioner --
+        using BiCG = Eigen::BiCGSTAB<SpMat, Eigen::DiagonalPreconditioner<double>>;
+
+        BiCG solver1, solver2, solver3, solver4;
+
+        // -- compute factorization once per matrix --
+        solver1.compute(A1);
+        solver2.compute(A2);
+        solver3.compute(A3);
+        solver4.compute(A4);
+
+        // optional: check for numerical issues
+        if (solver1.info() != Eigen::Success ||
+            solver2.info() != Eigen::Success ||
+            solver3.info() != Eigen::Success ||
+            solver4.info() != Eigen::Success)
+        {
+            std::cerr << "BiCGSTAB compute() failed on one of the matrices\n";
+        }
+
+        // -- solve for each RHS column --
+        dQt.col(0) = solver1.solve(Res.col(0));
+        dQt.col(1) = solver2.solve(Res.col(1));
+        dQt.col(2) = solver3.solve(Res.col(2));
+        dQt.col(3) = solver4.solve(Res.col(3));
+
+        // optional: inspect convergence
+        std::cout << "Iters: "
+                << solver1.iterations() << ", "
+                << solver2.iterations() << ", "
+                << solver3.iterations() << ", "
+                << solver4.iterations() << " | "
+                << "Errors: "
+                << solver1.error()      << ", "
+                << solver2.error()      << ", "
+                << solver3.error()      << ", "
+                << solver4.error()      << "\n";
+
+
+        Q = dQt + Q;
 
         // (Optional) Print progress info every few steps.
             if (step % solver.m_step == 0) {
@@ -144,6 +189,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
             } 
 
     }
+
 }
 
-#endif  // SSPRK2_H
+#endif 

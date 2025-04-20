@@ -30,15 +30,22 @@ struct Flow {
 };
 
 struct Solver {
-    double CFL;
     int n_step;
     int order;
     int m_step;
     int o_step;
 };
 
+struct Time {
+    double dt;
+    int use_cfl;
+    double CFL;
+    string method;
+    int local_dt;
+};
+
 // Simple input parser (INI-style)
-bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, std::string &mesh_file) {
+bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, Time &time, std::string &mesh_file) {
     std::ifstream infile(filename);
     if (!infile) {
         std::cerr << "Error: Cannot open input file: " << filename << std::endl;
@@ -72,7 +79,6 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, s
             else if (key == "max_step") solver.n_step = std::stoi(value);
             else if (key == "monitor_step") solver.m_step = std::stoi(value);
             else if (key == "output_step") solver.o_step = std::stoi(value);
-            else if (key == "CFL") solver.CFL = std::stod(value);
         } else if (section == "[meshfile]") {
             if (key == "file") mesh_file = value;
         } else if (section == "[flow]") {
@@ -85,6 +91,12 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, s
             else if (key == "Pr") flow.Pr = std::stod(value);
             else if (key == "R") flow.R = std::stod(value);
             else if (key == "mu") flow.mu = std::stod(value);
+        } else if (section == "[time]") {
+            if (key == "dt") time.dt = std::stod(value);
+            else if (key == "use_cfl") time.use_cfl = std::stoi(value);
+            else if (key == "CFL") time.CFL = std::stod(value);
+            else if (key == "method") time.method = value;
+            else if (key == "local_dt") time.local_dt = std::stoi(value);
         }
     }
 
@@ -92,12 +104,12 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, s
 }
 
 // Main initialization function
-void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Vector4d &Q_init, MatrixXd &Q)
+void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Time &time, Vector4d &Q_init, MatrixXd &Q)
 {
     std::string mesh_filename;
 
     // Parse config file
-    if (!parse_input_file(input_file, flow, solver, mesh_filename)) {
+    if (!parse_input_file(input_file, flow, solver, time, mesh_filename)) {
         std::cerr << "Input parsing failed. Check the input file format." << std::endl;
         exit(1);
     }
@@ -123,8 +135,31 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
 
     if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
     else if (flow.type == 2) {std::cout << "Equation : Navier-Stokes" << std::endl;}
-    if (solver.order == 1) {std::cout << "Order of accuracy = 1" << std::endl;}
-    else if (solver.order == 2) {std::cout << "Order of accuracy = 2" << std::endl;}
+    if (solver.order == 1) {std::cout << "Order of accuracy : 1" << std::endl;}
+    else if (solver.order == 2) {std::cout << "Order of accuracy : 2" << std::endl;}
+
+    if (time.method == "implicit") {
+        std::cout << "Using implicit method." << std::endl;
+        // Implement implicit solver setup
+    } else if (time.method == "explicit") {
+        std::cout << "Using explicit method." << std::endl;
+        // Implement explicit solver setup
+    } else {
+        std::cerr << "Unknown solver method. Please specify either 'implicit' or 'explicit'." << std::endl;
+        exit(1);
+    }
+    
+    if (time.use_cfl == 1) {
+        std::cout << "Using CFL condition for time-stepping." << std::endl;
+        std::cout << "CFL number: " << time.CFL << std::endl;
+        if (time.local_dt == 1) {
+            std::cout << "Using local time-stepping." << std::endl;
+        } else {
+            std::cout << "Using global time-stepping." << std::endl;
+        }
+    } else {
+        std::cout << "Using fixed time-step." << std::endl;
+    }
 
     // Initial conserved variables
     double E = flow.p / (flow.gamma - 1.0) + 0.5 * flow.rho * (flow.u * flow.u + flow.v * flow.v);
