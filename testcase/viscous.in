@@ -1,20 +1,26 @@
 [solver]
-order_accuracy = 1
+order_accuracy = 2
 max_step = 100
 monitor_step = 20
 output_step = 100
-CFL = 1
 
 [meshfile]
 file = ./grid_file.in
 
 [flow]
 type = 2
-rho = 1.4
-u = 0.85
+rho = 1.225
+u = 2.8925e+2
 v = 0
-p = 1
+p = 1.01325e+5
 gamma = 1.4
 Pr = 0.72
 R = 287
-mu = 2.69026e-05
+mu = 7.08662e-2
+
+[time]
+dt = 1e-4
+use_cfl = 0
+CFL = 1
+method = implicit
+local_dt = 0
