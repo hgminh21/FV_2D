@@ -6,6 +6,7 @@
 #include "meshread.h"
 #include "ssprk2.h"
 #include "implicit.h"
+// #include <petscsys.h>  // Include for PetscInitialize/Finalize
 
 using namespace std;
 using namespace Eigen;
@@ -15,7 +16,6 @@ int main(int argc, char* argv[]) {
     cout << "============================= UNIVERSITY OF KANSAS =============================" << endl;
     cout << "=========================== FINITE VOLUME CFD SOLVER ===========================" << endl;
     cout << "=============================== By Hoang Minh To ===============================" << endl;
-    
 
     // Check if the user has provided an input file as an argument
     if (argc < 2) {
@@ -32,14 +32,27 @@ int main(int argc, char* argv[]) {
     Flow flow;
     Solver solver;
     Time time;
-    
+
+    // Initialize the mesh and flow data
     cout << "Initializing..." << endl;
-    // Read mesh from the file specified in the terminal argument
     initialize(input_file, mesh, flow, solver, time, Q_init, Q);
+
+    // // Check if PETSc has been initialized; if not, initialize it
+    // PetscBool isMPIInitialized;
+    // PetscInitialized(&isMPIInitialized);
+    // if (!isMPIInitialized) {
+    //     PetscErrorCode ierr = PetscInitialize(&argc, &argv, nullptr, "Usage: ...");
+    //     if (ierr) {
+    //         std::cerr << "PETSc initialization failed!" << std::endl;
+    //         return 1;  // Exit with error
+    //     }
+    // }
+
     cout << "Finished initializing." << endl;
 
     cout << "================================================================================" << endl;
     cout << "Simulation started." << endl;
+
     // Run time integration
     if (time.method == "implicit") {
         // Perform tasks for the implicit method
@@ -48,7 +61,12 @@ int main(int argc, char* argv[]) {
         // Handle other methods or default case
         ssprk2(mesh, solver, flow, time, Q, Q_init);
     }
+
     cout << "Simulation completed." << endl;
     cout << "================================================================================" << endl;
+
+    // // Finalize PETSc
+    // PetscFinalize();
+
     return 0;
 }

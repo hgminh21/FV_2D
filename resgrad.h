@@ -94,61 +94,52 @@ inline void res_reconstruct(const MeshData &mesh,
     dResy = Resy1_temp - Resy2_temp;
 
     // Build implicit Jacobian contributions per face
-    std::array<Eigen::MatrixXd*,4> Aims = {{&A_im1, &A_im2, &A_im3, &A_im4}};
+    std::array<Eigen::MatrixXd*, 4> Aims = {{&A_im1, &A_im2, &A_im3, &A_im4}};
+
+    #pragma omp parallel for schedule(static)  // optional parallelization if safe
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i, 0) - 1;
         int c2 = mesh.f2c(i, 1) - 1;
         if (c2 < 0) continue;
-
+    
         for (int j = 0; j < 4; ++j) {
-            auto& Aim = *Aims[j];
-            double dQx1 = dQx(c1,j), dQx2 = dQx(c2,j);
-            double dQy1 = dQy(c1,j), dQy2 = dQy(c2,j);
-            double dRx1 = dResx(c1,j), dRx2 = dResx(c2,j);
-            double dRy1 = dResy(c1,j), dRy2 = dResy(c2,j);
-
-            bool smallX1 = std::abs(dQx1) < eps;
-            bool smallY1 = std::abs(dQy1) < eps;
-            bool smallX2 = std::abs(dQx2) < eps;
-            bool smallY2 = std::abs(dQy2) < eps;
-
-            // Initialize to zero
-            Aim(c1, c1) = 0.0;
-            Aim(c1, c2) = 0.0;
-
-            // First gradient (cell 1 side)
-            if (!smallX1 && !smallY1) {
-                Aim(c1, c1) += 0.5 * (dRx1 / dQx1 + dRy1 / dQy1);
-            } else {
-                if (!smallX1) Aim(c1, c1) += dRx1 / dQx1;
-                if (!smallY1) Aim(c1, c1) += dRy1 / dQy1;
-            }
-
-            // Second gradient (cell 2 side)
-            if (!smallX2 && !smallY2) {
-                Aim(c1, c2) += 0.5 * (dRx2 / dQx2 + dRy2 / dQy2);
-            } else {
-                if (!smallX2) Aim(c1, c2) += dRx2 / dQx2;
-                if (!smallY2) Aim(c1, c2) += dRy2 / dQy2;
-            }
-
-            // Symmetric mirror
-            Aim(c2, c2) = Aim(c1, c2);
-            Aim(c2, c1) = Aim(c1, c1);
+            Eigen::MatrixXd& Aim = *Aims[j];
+    
+            double dQx1 = dQx(c1, j), dQx2 = dQx(c2, j);
+            double dQy1 = dQy(c1, j), dQy2 = dQy(c2, j);
+            double dRx1 = dResx(c1, j), dRx2 = dResx(c2, j);
+            double dRy1 = dResy(c1, j), dRy2 = dResy(c2, j);
+    
+            double val_c1c1 = 0.0, val_c1c2 = 0.0;
+    
+            if (std::abs(dQx1) >= eps) val_c1c1 += dRx1 / dQx1;
+            if (std::abs(dQy1) >= eps) val_c1c1 += dRy1 / dQy1;
+            if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
+                val_c1c1 *= 0.5;
+    
+            if (std::abs(dQx2) >= eps) val_c1c2 += dRx2 / dQx2;
+            if (std::abs(dQy2) >= eps) val_c1c2 += dRy2 / dQy2;
+            if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
+                val_c1c2 *= 0.5;
+    
+            Aim(c1, c1) = val_c1c1;
+            Aim(c1, c2) = val_c1c2;
+            Aim(c2, c2) = val_c1c2;
+            Aim(c2, c1) = val_c1c1;
         }
     }
-
-    // Form final implicit matrices: I - A_im*
-    A_im1 = I - A_im1;
-    A_im2 = I - A_im2;
-    A_im3 = I - A_im3;
-    A_im4 = I - A_im4;
-
-    // Optional: check for NaNs/Infs
-    if (!A_im1.array().isFinite().all()) std::cerr << "Non-finite in A_im1\n";
-    if (!A_im2.array().isFinite().all()) std::cerr << "Non-finite in A_im2\n";
-    if (!A_im3.array().isFinite().all()) std::cerr << "Non-finite in A_im3\n";
-    if (!A_im4.array().isFinite().all()) std::cerr << "Non-finite in A_im4\n";
+    
+    // Vectorized final step
+    for (auto* Aim : Aims) {
+        *Aim = I - *Aim;
+    }
+    
+    // NaN/Inf check
+    for (int k = 0; k < 4; ++k) {
+        if (!Aims[k]->array().isFinite().all())
+            std::cerr << "Non-finite in A_im" << (k + 1) << "\n";
+    }
+    
 }
 
 #endif // RESGRAD_H
