@@ -47,14 +47,21 @@ inline void solve_one_system(const Eigen::MatrixXd& A_eigen,
     ierr = VecDuplicate(b, &x); CHKERRABORT(PETSC_COMM_WORLD, ierr);
 
     // Solver
-    KSP ksp;
+    KSP ksp; 
+
     ierr = KSPCreate(PETSC_COMM_WORLD, &ksp); CHKERRABORT(PETSC_COMM_WORLD, ierr);
     ierr = KSPSetOperators(ksp, A, A); CHKERRABORT(PETSC_COMM_WORLD, ierr);
-    ierr = KSPSetType(ksp, KSPCG); CHKERRABORT(PETSC_COMM_WORLD, ierr);  // Use Conjugate Gradient for SPD
-
+    // ierr = KSPSetType(ksp, KSPCG); CHKERRABORT(PETSC_COMM_WORLD, ierr);  // Use Conjugate Gradient for SPD
+    ierr = KSPSetType(ksp, KSPGMRES); CHKERRABORT(PETSC_COMM_WORLD, ierr); // Use GMRES for non-SPD
+    // int max_iters = 100000;  // Set max iterations
+    // double tol = 1e-6;     // Set tolerance
+    // ierr = KSPSetTolerances(ksp, tol, PETSC_DEFAULT, PETSC_DEFAULT, max_iters); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+    
     PC pc;
     ierr = KSPGetPC(ksp, &pc); CHKERRABORT(PETSC_COMM_WORLD, ierr);
-    ierr = PCSetType(pc, PCCHOLESKY); CHKERRABORT(PETSC_COMM_WORLD, ierr); // Cholesky like ldlt
+    // ierr = PCSetType(pc, PCCHOLESKY); CHKERRABORT(PETSC_COMM_WORLD, ierr); // Cholesky like ldlt
+    // ierr = PCSetType(pc, PCILU); CHKERRABORT(PETSC_COMM_WORLD, ierr); // ILU preconditioner
+    ierr = PCSetType(pc, PCJACOBI); CHKERRABORT(PETSC_COMM_WORLD, ierr);  // Jacobi preconditioner
 
     ierr = KSPSetFromOptions(ksp); CHKERRABORT(PETSC_COMM_WORLD, ierr);
     ierr = KSPSolve(ksp, b, x); CHKERRABORT(PETSC_COMM_WORLD, ierr);
@@ -67,9 +74,12 @@ inline void solve_one_system(const Eigen::MatrixXd& A_eigen,
         x_eigen[i] = x_array[i];
     ierr = VecRestoreArrayRead(x, &x_array); CHKERRABORT(PETSC_COMM_WORLD, ierr);    
 
-    // Residual check
-    Eigen::VectorXd residual = A_eigen * x_eigen - b_eigen;
-    std::cout << "Residual norm [col " << col_index << "]: " << residual.norm() << std::endl;
+    // // Check
+    // Eigen::VectorXd residual = A_eigen * x_eigen - b_eigen;
+    // std::cout << "Residual norm [col " << col_index << "]: " << residual.norm() << std::endl;
+    // int iters;
+    // ierr = KSPGetIterationNumber(ksp, &iters); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+    // std::cout << "Number of iterations: " << iters << std::endl;
 
     // Cleanup
     VecDestroy(&b);
@@ -94,20 +104,6 @@ inline void solver_ILU(const Eigen::MatrixXd& A_im1,
     solve_one_system(A_im2, Res.col(1), x, 1); dQ.col(1) = x;
     solve_one_system(A_im3, Res.col(2), x, 2); dQ.col(2) = x;
     solve_one_system(A_im4, Res.col(3), x, 3); dQ.col(3) = x;
-
-    // Debug output to text file
-    std::ofstream fout("dQ_output.txt");
-    if (fout.is_open()) {
-        fout << std::scientific;
-        for (int i = 0; i < dQ.rows(); ++i) {
-            for (int j = 0; j < 4; ++j)
-                fout << dQ(i, j) << " ";
-            fout << "\n";
-        }
-        fout.close();
-    } else {
-        std::cerr << "Error writing dQ_output.txt\n";
-    }
 }
 
 #endif // SOLVERILU_H

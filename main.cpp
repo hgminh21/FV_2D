@@ -6,7 +6,7 @@
 #include "meshread.h"
 #include "ssprk2.h"
 #include "implicit.h"
-// #include <petscsys.h>  // Include for PetscInitialize/Finalize
+#include <petscsys.h>  // Include for PetscInitialize/Finalize
 
 using namespace std;
 using namespace Eigen;
@@ -37,16 +37,16 @@ int main(int argc, char* argv[]) {
     cout << "Initializing..." << endl;
     initialize(input_file, mesh, flow, solver, time, Q_init, Q);
 
-    // // Check if PETSc has been initialized; if not, initialize it
-    // PetscBool isMPIInitialized;
-    // PetscInitialized(&isMPIInitialized);
-    // if (!isMPIInitialized) {
-    //     PetscErrorCode ierr = PetscInitialize(&argc, &argv, nullptr, "Usage: ...");
-    //     if (ierr) {
-    //         std::cerr << "PETSc initialization failed!" << std::endl;
-    //         return 1;  // Exit with error
-    //     }
-    // }
+    // Check if PETSc has been initialized; if not, initialize it
+    PetscBool isMPIInitialized;
+    PetscInitialized(&isMPIInitialized);
+    if (!isMPIInitialized) {
+        PetscErrorCode ierr = PetscInitialize(&argc, &argv, nullptr, "Usage: ...");
+        if (ierr) {
+            std::cerr << "PETSc initialization failed!" << std::endl;
+            return 1;  // Exit with error
+        }
+    }
 
     cout << "Finished initializing." << endl;
 
@@ -65,8 +65,8 @@ int main(int argc, char* argv[]) {
     cout << "Simulation completed." << endl;
     cout << "================================================================================" << endl;
 
-    // // Finalize PETSc
-    // PetscFinalize();
+    // Finalize PETSc
+    PetscFinalize();
 
     return 0;
 }

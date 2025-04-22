@@ -5,7 +5,6 @@
 #include <iostream>
 #include <filesystem>
 
-// Include the other header files required for reconstruction, flux computation, and residual computation.
 #include "meshread.h"
 #include "initialize.h"
 #include "reconstruct.h"
@@ -97,7 +96,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
             Q = 0.5 * Q + 0.5 * (Q1 + time.dt * Res);
         }
 
-        // (Optional) Print progress info every few steps.
+        //  Print progress info every few steps.
             if (step % solver.m_step == 0) {
                 std::cout << "Completed step " << step << " of " << solver.n_step << std::endl;
                 // Compute L2 norms for each column of the residual

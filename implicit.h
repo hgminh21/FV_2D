@@ -4,10 +4,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <filesystem>
-#include <Eigen/Sparse>
 
-
-// Include the other header files required for reconstruction, flux computation, and residual computation.
 #include "meshread.h"
 #include "initialize.h"
 #include "reconstruct.h"
@@ -16,9 +13,13 @@
 #include "rescomp.h"
 #include "resgrad.h"
 #include "writeout.h"
-// #include "solverBiCG.h"
-// #include "solverConGrad.h"
+
+
+#include "solverBiCG.h"
+#include "solverConGrad.h"
 #include "solverILU.h"
+#include "solverLDLT.h"
+#include "solverLU.h"
 
 void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flow, const Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) 
 {
@@ -57,7 +58,6 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
     Eigen::MatrixXd A_im2 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
     Eigen::MatrixXd A_im3 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
     Eigen::MatrixXd A_im4 = Eigen::MatrixXd::Zero(mesh.n_cells, mesh.n_cells);
-    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(mesh.n_cells, mesh.n_cells);
     
     std::filesystem::create_directory("sol");
 
@@ -80,7 +80,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
             compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy);
         }
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
-
+        Eigen::MatrixXd I = Eigen::MatrixXd::Identity(mesh.n_cells, mesh.n_cells);
         if (time.use_cfl == 1) {    // Use CFL condition
             if (time.local_dt == 0) { // Global time step
                 double dt_glob = dt_local.minCoeff();
@@ -95,33 +95,12 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
         }
 
         res_reconstruct(mesh, Res, F, dResx, dResy, dQx, dQy, A_im1, A_im2, A_im3, A_im4, Resx1_temp, Resx2_temp, Resy1_temp, Resy2_temp, I);
+        
         // solver_BiCG(A_im1, A_im2, A_im3, A_im4, Res, dQt);
         // solver_ConGrad(mesh, A_im1, A_im2, A_im3, A_im4, Res, dQt);
         solver_ILU(A_im1, A_im2, A_im3, A_im4, Res, dQt);
-
-        // using SpMat = Eigen::SparseMatrix<double>;
-        // SpMat A1 = A_im1.sparseView();
-        // SpMat A2 = A_im2.sparseView();
-        // SpMat A3 = A_im3.sparseView();
-        // SpMat A4 = A_im4.sparseView();
-
-        // Eigen::SimplicialLDLT<SpMat> solver1, solver2, solver3, solver4;
-
-        // solver1.compute(A1);
-        // solver2.compute(A2);
-        // solver3.compute(A3);
-        // solver4.compute(A4);
-
-        // // Optional: check success
-        // if (solver1.info() != Eigen::Success) std::cerr << "Solver1 failed to factor A1\n";
-        // if (solver2.info() != Eigen::Success) std::cerr << "Solver2 failed to factor A2\n";
-        // if (solver3.info() != Eigen::Success) std::cerr << "Solver3 failed to factor A3\n";
-        // if (solver4.info() != Eigen::Success) std::cerr << "Solver4 failed to factor A4\n";
-
-        // dQt.col(0) = solver1.solve(Res.col(0));
-        // dQt.col(1) = solver2.solve(Res.col(1));
-        // dQt.col(2) = solver3.solve(Res.col(2));
-        // dQt.col(3) = solver4.solve(Res.col(3));
+        // dQt = solver_LDLT(A_im1, A_im2, A_im3, A_im4, Res);
+        // dQt = solver_LU(A_im1, A_im2, A_im3, A_im4, Res);
 
         Q = dQt + Q;
 
@@ -141,6 +120,11 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
 
                 // Save to file in the format: step res1 res2 res3 res4
                 outfile << step << " " << res1 << " " << res2 << " " << res3 << " " << res4 << std::endl;
+                std::cout << "dQt norm: "
+                            << dQt.col(0).norm() << ", "
+                            << dQt.col(1).norm() << ", "
+                            << dQt.col(2).norm() << ", "
+                            << dQt.col(3).norm() << std::endl;
             }
 
             if (step % solver.o_step == 0) {

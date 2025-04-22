@@ -7,6 +7,8 @@
 #include <array>
 #include <iostream>
 
+#include <omp.h>
+
 #include "meshread.h"
 #include "initialize.h"
 
@@ -104,7 +106,9 @@ inline void res_reconstruct(const MeshData &mesh,
     
         for (int j = 0; j < 4; ++j) {
             Eigen::MatrixXd& Aim = *Aims[j];
-    
+            const Eigen::Vector2d rc1 = mesh.r_c.row(c1) / mesh.r_c.row(c1).norm();
+            const Eigen::Vector2d rc2 = mesh.r_c.row(c2) / mesh.r_c.row(c2).norm();
+
             double dQx1 = dQx(c1, j), dQx2 = dQx(c2, j);
             double dQy1 = dQy(c1, j), dQy2 = dQy(c2, j);
             double dRx1 = dResx(c1, j), dRx2 = dResx(c2, j);
@@ -112,6 +116,16 @@ inline void res_reconstruct(const MeshData &mesh,
     
             double val_c1c1 = 0.0, val_c1c2 = 0.0;
     
+            // if (std::abs(dQx1) >= eps) val_c1c1 += rc1(0) * dRx1 / dQx1;
+            // if (std::abs(dQy1) >= eps) val_c1c1 += rc1(1) * dRy1 / dQy1;
+            // if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
+            //     val_c1c1 *= 1.0;
+    
+            // if (std::abs(dQx2) >= eps) val_c1c2 += rc2(0) * dRx2 / dQx2;
+            // if (std::abs(dQy2) >= eps) val_c1c2 += rc2(1) * dRy2 / dQy2;
+            // if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
+            //     val_c1c2 *= 1.0;
+
             if (std::abs(dQx1) >= eps) val_c1c1 += dRx1 / dQx1;
             if (std::abs(dQy1) >= eps) val_c1c1 += dRy1 / dQy1;
             if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)

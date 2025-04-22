@@ -58,6 +58,7 @@ void solver_BiCG(const Eigen::MatrixXd &A_im1,
                 << solver2.error()      << ", "
                 << solver3.error()      << ", "
                 << solver4.error()      << "\n";
+
 }
 
 #endif // SOLVERBICG_H

@@ -74,7 +74,6 @@ void solver_ConGrad(const MeshData &mesh,
     // 5. Optional debug
     std::cout << "Block solver: iter = " << LNsolver.iterations()
                 << ", error = " << LNsolver.error() << "\n";
-
 }
 
 #endif // SOLVERCONGRAD_H
