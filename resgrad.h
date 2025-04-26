@@ -106,40 +106,42 @@ inline void res_reconstruct(const MeshData &mesh,
     
         for (int j = 0; j < 4; ++j) {
             Eigen::MatrixXd& Aim = *Aims[j];
-            const Eigen::Vector2d rc1 = mesh.r_c.row(c1) / mesh.r_c.row(c1).norm();
-            const Eigen::Vector2d rc2 = mesh.r_c.row(c2) / mesh.r_c.row(c2).norm();
 
             double dQx1 = dQx(c1, j), dQx2 = dQx(c2, j);
             double dQy1 = dQy(c1, j), dQy2 = dQy(c2, j);
             double dRx1 = dResx(c1, j), dRx2 = dResx(c2, j);
             double dRy1 = dResy(c1, j), dRy2 = dResy(c2, j);
-    
+            
+            // Row c1
             double val_c1c1 = 0.0, val_c1c2 = 0.0;
-    
-            // if (std::abs(dQx1) >= eps) val_c1c1 += rc1(0) * dRx1 / dQx1;
-            // if (std::abs(dQy1) >= eps) val_c1c1 += rc1(1) * dRy1 / dQy1;
-            // if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
-            //     val_c1c1 *= 1.0;
-    
-            // if (std::abs(dQx2) >= eps) val_c1c2 += rc2(0) * dRx2 / dQx2;
-            // if (std::abs(dQy2) >= eps) val_c1c2 += rc2(1) * dRy2 / dQy2;
-            // if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
-            //     val_c1c2 *= 1.0;
 
             if (std::abs(dQx1) >= eps) val_c1c1 += dRx1 / dQx1;
             if (std::abs(dQy1) >= eps) val_c1c1 += dRy1 / dQy1;
             if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
                 val_c1c1 *= 0.5;
     
-            if (std::abs(dQx2) >= eps) val_c1c2 += dRx2 / dQx2;
-            if (std::abs(dQy2) >= eps) val_c1c2 += dRy2 / dQy2;
+            if (std::abs(dQx2) >= eps) val_c1c2 += dRx1 / dQx2;
+            if (std::abs(dQy2) >= eps) val_c1c2 += dRy1 / dQy2;
             if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
                 val_c1c2 *= 0.5;
+            
+            // Row c2
+            double val_c2c2 = 0.0, val_c2c1 = 0.0;
+
+            if (std::abs(dQx2) >= eps) val_c2c2 += dRx2 / dQx2;
+            if (std::abs(dQy2) >= eps) val_c2c2 += dRy2 / dQy2;
+            if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
+                val_c2c2 *= 0.5;
     
+            if (std::abs(dQx1) >= eps) val_c2c1 += dRx2 / dQx1;
+            if (std::abs(dQy1) >= eps) val_c2c1 += dRy2 / dQy1;
+            if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
+                val_c2c1 *= 0.5;
+
             Aim(c1, c1) = val_c1c1;
             Aim(c1, c2) = val_c1c2;
-            Aim(c2, c2) = val_c1c2;
-            Aim(c2, c1) = val_c1c1;
+            Aim(c2, c2) = val_c2c2;
+            Aim(c2, c1) = val_c2c1;
         }
     }
     

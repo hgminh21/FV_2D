@@ -57,11 +57,11 @@ inline void solve_one_system(const Eigen::MatrixXd& A_eigen,
     // double tol = 1e-6;     // Set tolerance
     // ierr = KSPSetTolerances(ksp, tol, PETSC_DEFAULT, PETSC_DEFAULT, max_iters); CHKERRABORT(PETSC_COMM_WORLD, ierr);
     
-    PC pc;
-    ierr = KSPGetPC(ksp, &pc); CHKERRABORT(PETSC_COMM_WORLD, ierr);
-    // ierr = PCSetType(pc, PCCHOLESKY); CHKERRABORT(PETSC_COMM_WORLD, ierr); // Cholesky like ldlt
-    // ierr = PCSetType(pc, PCILU); CHKERRABORT(PETSC_COMM_WORLD, ierr); // ILU preconditioner
-    ierr = PCSetType(pc, PCJACOBI); CHKERRABORT(PETSC_COMM_WORLD, ierr);  // Jacobi preconditioner
+    // PC pc;
+    // ierr = KSPGetPC(ksp, &pc); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+    // // ierr = PCSetType(pc, PCCHOLESKY); CHKERRABORT(PETSC_COMM_WORLD, ierr); // Cholesky like ldlt
+    // // ierr = PCSetType(pc, PCILU); CHKERRABORT(PETSC_COMM_WORLD, ierr); // ILU preconditioner
+    // ierr = PCSetType(pc, PCJACOBI); CHKERRABORT(PETSC_COMM_WORLD, ierr);  // Jacobi preconditioner
 
     ierr = KSPSetFromOptions(ksp); CHKERRABORT(PETSC_COMM_WORLD, ierr);
     ierr = KSPSolve(ksp, b, x); CHKERRABORT(PETSC_COMM_WORLD, ierr);
@@ -74,12 +74,12 @@ inline void solve_one_system(const Eigen::MatrixXd& A_eigen,
         x_eigen[i] = x_array[i];
     ierr = VecRestoreArrayRead(x, &x_array); CHKERRABORT(PETSC_COMM_WORLD, ierr);    
 
-    // // Check
-    // Eigen::VectorXd residual = A_eigen * x_eigen - b_eigen;
-    // std::cout << "Residual norm [col " << col_index << "]: " << residual.norm() << std::endl;
-    // int iters;
-    // ierr = KSPGetIterationNumber(ksp, &iters); CHKERRABORT(PETSC_COMM_WORLD, ierr);
-    // std::cout << "Number of iterations: " << iters << std::endl;
+    // Check
+    Eigen::VectorXd residual = A_eigen * x_eigen - b_eigen;
+    std::cout << "Residual norm [col " << col_index << "]: " << residual.norm() << std::endl;
+    int iters;
+    ierr = KSPGetIterationNumber(ksp, &iters); CHKERRABORT(PETSC_COMM_WORLD, ierr);
+    std::cout << "Number of iterations: " << iters << std::endl;
 
     // Cleanup
     VecDestroy(&b);

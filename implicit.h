@@ -50,6 +50,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
     Eigen::MatrixXd Q_f = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fx = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fy = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
+    Eigen::MatrixXd dVdn = Eigen::MatrixXd::Zero(mesh.n_fwalls, 2);
 
     Eigen::MatrixXd dResx = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd dResy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
@@ -77,7 +78,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
         }
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
         Eigen::MatrixXd I = Eigen::MatrixXd::Identity(mesh.n_cells, mesh.n_cells);
@@ -94,16 +95,20 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
             I = 1.0 / time.dt * I;
         }
 
-        res_reconstruct(mesh, Res, F, dResx, dResy, dQx, dQy, A_im1, A_im2, A_im3, A_im4, Resx1_temp, Resx2_temp, Resy1_temp, Resy2_temp, I);
-        
-        // solver_BiCG(A_im1, A_im2, A_im3, A_im4, Res, dQt);
-        // solver_ConGrad(mesh, A_im1, A_im2, A_im3, A_im4, Res, dQt);
-        solver_ILU(A_im1, A_im2, A_im3, A_im4, Res, dQt);
-        // dQt = solver_LDLT(A_im1, A_im2, A_im3, A_im4, Res);
-        // dQt = solver_LU(A_im1, A_im2, A_im3, A_im4, Res);
+        if (step == 0) {
+            Q = Q + time.dt * Res;
+        }
+        else {
+            res_reconstruct(mesh, Res, F, dResx, dResy, dQx, dQy, A_im1, A_im2, A_im3, A_im4, Resx1_temp, Resx2_temp, Resy1_temp, Resy2_temp, I);
+            
+            // solver_BiCG(A_im1, A_im2, A_im3, A_im4, Res, dQt);
+            // solver_ConGrad(mesh, A_im1, A_im2, A_im3, A_im4, Res, dQt);
+            solver_ILU(A_im1, A_im2, A_im3, A_im4, Res, dQt);
+            // dQt = solver_LDLT(A_im1, A_im2, A_im3, A_im4, Res);
+            // dQt = solver_LU(A_im1, A_im2, A_im3, A_im4, Res);
 
-        Q = dQt + Q;
-
+            Q = dQt + Q;
+        }
         // (Optional) Print progress info every few steps.
             if (step % solver.m_step == 0) {
                 std::cout << "Completed step " << step << " of " << solver.n_step << std::endl;

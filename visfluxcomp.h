@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <algorithm>
-#include <iostream>  // For debug prints if needed
+#include <iostream> 
 
 #include "meshread.h"
 #include "initialize.h"
@@ -25,7 +25,8 @@ void compute_fluxes_vis(const MeshData &mesh,
                         MatrixXd &F_viscous,
                         MatrixXd &Q_f,
                         MatrixXd &dQ_fx,
-                        MatrixXd &dQ_fy)
+                        MatrixXd &dQ_fy,
+                        MatrixXd &dVdn)
 {
     // Inviscid part
     compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
@@ -34,7 +35,10 @@ void compute_fluxes_vis(const MeshData &mesh,
     Q_f.setZero();
     dQ_fx.setZero();
     dQ_fy.setZero();
+    
     double dux, duy, dvx, dvy, dTx, dTy;
+
+    int j = 0;
 
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i, 0) - 1;
@@ -89,6 +93,10 @@ void compute_fluxes_vis(const MeshData &mesh,
 
             double dun = -uL / mag;
             double dvn = -vL / mag;
+            
+            dVdn(j, 0) = dun;
+            dVdn(j, 1) = dvn;
+            j += 1;
 
             dux = dun * nx;
             duy = dun * ny;

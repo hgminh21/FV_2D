@@ -21,12 +21,14 @@ struct MeshData {
     int n_nodes;      // Number of nodes
     int n_faces;      // Number of faces
     int n_cells;      // Number of cells
+    int n_fwalls;     // Number of wall faces
 
     MatrixXd r_node;  // Nodal coordinates (n_nodes x 2)
     MatrixXi f2n;     // Face-to-node connectivity (n_faces x 2)
     MatrixXi f2c;     // Face-to-cell connectivity (n_faces x 2)
 
     MatrixXd r_f;     // Face midpoints (n_faces x 2)
+    MatrixXd r_w;     // Wall face midpoints (n_fwalls x 2)
     MatrixXd n_f;     // Face normal vectors (n_faces x 2)
     VectorXd A;       // Face "areas" (or lengths in 2D) (n_faces)
     
@@ -62,9 +64,9 @@ MeshData readMesh(const string &filename) {
     in >> mesh.n_nodes >> mesh.n_faces >> mesh.n_cells;
     
     // Print mesh summary
-    cout << "  Number of nodes : " << mesh.n_nodes << endl;
-    cout << "  Number of faces : " << mesh.n_faces << endl;
-    cout << "  Number of cells : " << mesh.n_cells << endl; 
+    cout << "  Number of nodes: " << mesh.n_nodes << endl;
+    cout << "  Number of faces: " << mesh.n_faces << endl;
+    cout << "  Number of cells: " << mesh.n_cells << endl; 
 
     // Resize containers appropriately.
     mesh.r_node.resize(mesh.n_nodes, 2);
@@ -106,6 +108,9 @@ MeshData readMesh(const string &filename) {
     VectorXd xc_n = VectorXd::Zero(mesh.n_cells);
     VectorXd yc_n = VectorXd::Zero(mesh.n_cells);
     
+    mesh.n_fwalls = 0;
+    mesh.r_w.resize(mesh.n_fwalls, 2);
+    
     // Compute face midpoints, normals, face "areas", and contributions to cell volumes.
     for (int i = 0; i < mesh.n_faces; ++i) {
         // Adjust indices from one-indexed to zero-indexed.
@@ -145,8 +150,15 @@ MeshData readMesh(const string &filename) {
             xc_n(c2)     -= tempx;
             yc_n(c2)     -= tempy;
         }
+        if (c2 == -1) {
+            mesh.r_w.conservativeResize(mesh.n_fwalls + 1, Eigen::NoChange);
+            mesh.r_w.row(mesh.n_fwalls) = mesh.r_f.row(i); 
+            mesh.n_fwalls += 1;
+        }
     }
     
+    cout << "  Number of wall faces: " << mesh.n_fwalls << endl;
+
     // Compute cell centroids from accumulated moments.
     for (int i = 0; i < mesh.n_cells; ++i) {
         if (mesh.V(i) == 0) {
@@ -161,6 +173,7 @@ MeshData readMesh(const string &filename) {
     VectorXd Ixx_temp = VectorXd::Zero(mesh.n_cells); 
     VectorXd Iyy_temp = VectorXd::Zero(mesh.n_cells);
     VectorXd Ixy_temp = VectorXd::Zero(mesh.n_cells);
+
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i, 0) - 1;
         int c2 = mesh.f2c(i, 1) - 1;
