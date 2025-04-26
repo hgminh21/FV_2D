@@ -1,11 +1,11 @@
 # FV_2D
 
-A 2D finite volume solver.
+A 2D finite volume solver for compressible flows.
 
 ## Dependencies
 
 - [Eigen](https://eigen.tuxfamily.org/) (header-only library)
-- [PETSc](https://petsc.org/release/) (if want to use implitcit)
+- [PETSc](https://petsc.org/release/) (required for implicit time-stepping)
 
 ## Build Instructions
 
@@ -13,38 +13,48 @@ A 2D finite volume solver.
 mkdir build && cd build
 cmake ..
 cmake --build .
+```
 
-## Input Instructions
+## Input File Instructions
+
+Example input file (`.in` format):
 
 ```in
 [solver]
-order_accuracy = 2      # order of accuracy input
-max_step = 100          # maximum iterations
-monitor_step = 10       # print residuals and coefficients
-output_step = 2500      # output result files
+order_accuracy = 2       # Order of accuracy (e.g., 1 for first-order, 2 for second-order)
+max_step = 100           # Maximum number of time steps
+monitor_step = 10        # Frequency of printing residuals and coefficients
+output_step = 2500       # Frequency of writing output files
 
 [meshfile]
-file = ./grid_file.in   # mesh file location
+file = ./grid_file.in    # Path to mesh file
 
 [flow]
-type = 1                # governing equation 1: Euler, 2: Navier-Stokes
-rho = 1.4               # density
-u = 0.85                # X-direction velocity
-v = 0                   # Y-direction velocity
-p = 1                   # pressure
-gamma = 1.4             # specific heat reatio
+type = 1                 # 1: Euler equations, 2: Navier-Stokes equations
+rho = 1.4                # Initial density
+u = 0.85                 # Initial velocity in X-direction
+v = 0                    # Initial velocity in Y-direction
+p = 1                    # Initial pressure
+gamma = 1.4              # Specific heat ratio
 
 [time]
-dt = 1e-4               # fixed time step (will be avoided if use cfl)
-use_cfl = 0             # 0: use fixed time step, 1: use cfl number
-CFL = 1                 # input cfl number < 1
-method = implicit       # explicit or implicit time scheme (implicit is still in develop)
-local_dt = 0            # 0: use global time step, 1: use local time step
+dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)
+use_cfl = 0              # 0: Fixed time step, 1: CFL-based time step
+CFL = 1                  # CFL number (should be < 1)
+method = implicit        # Time-stepping method: "explicit" or "implicit" (implicit under development)
+local_dt = 0             # 0: Global time step, 1: Local time step
+```
 
-## To use live update with Tecplot 360
+## Live Update with Tecplot 360
 
-- Have access to Tecplot 360 EX 2021 R2 or later
-- Python 3.11 or later 
-- Scripting -> PyTecplot Connections -> check Accept connections
+To use live visualization with Tecplot:
+
+1. Make sure you have **Tecplot 360 EX 2021 R2** (or newer).
+2. Install **Python 3.11** (or newer).
+3. In Tecplot:  
+   Go to `Scripting -> PyTecplot Connections -> Accept Connections` and check the box.
+4. Run the live viewer script:
+
 ```bash
 python live_viewer.py
+```
