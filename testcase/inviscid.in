@@ -3,7 +3,6 @@ order_accuracy = 2
 max_step = 100
 monitor_step = 10
 output_step = 2500
-CFL = 1
 
 [meshfile]
 file = ./grid_file.in
