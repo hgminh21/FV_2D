@@ -30,7 +30,7 @@ output_step = 2500       # Frequency of writing output files
 file = ./grid_file.in    # Path to mesh file
 
 [flow]
-type = 1                 # 1: Euler equations, 2: Navier-Stokes equations
+type = 1                 # 1: Euler equations, 2: Navier-Stokes equations(only for 2nd-order)
 rho = 1.4                # Initial density
 u = 0.85                 # Initial velocity in X-direction
 v = 0                    # Initial velocity in Y-direction

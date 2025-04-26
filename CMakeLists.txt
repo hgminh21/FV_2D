@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # PETSc install location
-set(PETSC_DIR "/home/h728t025/work/tools/bin")
+set(PETSC_DIR "/path/to/petsc")
 
 # Find MPI
 find_package(MPI REQUIRED)
@@ -22,7 +22,7 @@ add_executable(FV_2D main.cpp)
 target_include_directories(FV_2D PRIVATE
     ${PETSC_DIR}/include
     ${MPI_C_INCLUDE_PATH}
-    /home/h728t025/work/bin/eigen-3.4.0
+    /path/to/eigen3
 )
 
 # Link PETSc and MPI (use full path to libpetsc.so)
@@ -40,5 +40,5 @@ target_compile_definitions(FV_2D PRIVATE EIGEN_DONT_PARALLELIZE)
 
 # Output directory
 set_target_properties(FV_2D PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY /home/h728t025/work/programs/bin
+    RUNTIME_OUTPUT_DIRECTORY /path/to/output/directory
 )
