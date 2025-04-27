@@ -5,7 +5,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-#include "meshread.h"
+#include "io/meshread.h"
 
 
 void solver_ConGrad(const MeshData &mesh,

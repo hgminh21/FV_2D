@@ -6,7 +6,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "meshread.h"
+
+#include "io/meshread.h"
 
 using namespace Eigen;
 using std::string;

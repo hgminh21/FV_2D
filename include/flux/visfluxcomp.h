@@ -6,9 +6,9 @@
 #include <algorithm>
 #include <iostream> 
 
-#include "meshread.h"
-#include "initialize.h"
-#include "fluxcomp.h"
+#include "io/meshread.h"
+#include "io/initialize.h"
+#include "flux/fluxcomp.h"
 
 using namespace Eigen;
 using std::max;

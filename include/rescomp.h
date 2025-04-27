@@ -2,8 +2,8 @@
 #define RESCOMP_H
 
 #include <Eigen/Dense>
-#include "meshread.h"
-#include "initialize.h"
+#include "io/meshread.h"
+#include "io/initialize.h"
 
 using namespace Eigen;
 

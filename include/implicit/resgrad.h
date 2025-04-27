@@ -9,8 +9,8 @@
 
 #include <omp.h>
 
-#include "meshread.h"
-#include "initialize.h"
+#include "io/meshread.h"
+#include "io/initialize.h"
 
 inline void res_reconstruct(const MeshData &mesh, 
                             const Eigen::MatrixXd &Res,

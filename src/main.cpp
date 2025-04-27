@@ -1,12 +1,12 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <cstdlib>  // For std::exit
-
-#include "initialize.h"
-#include "meshread.h"
-#include "ssprk2.h"
-#include "implicit.h"
 #include <petscsys.h>  // Include for PetscInitialize/Finalize
+
+#include "io/initialize.h"
+#include "io/meshread.h"
+#include "ssprk2.h"
+#include "implicit/implicit.h"
 
 using namespace std;
 using namespace Eigen;

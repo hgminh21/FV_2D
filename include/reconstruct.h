@@ -5,8 +5,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "meshread.h"
-#include "initialize.h"
+#include "io/meshread.h"
+#include "io/initialize.h"
 
 using namespace Eigen;
 
