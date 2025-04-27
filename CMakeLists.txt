@@ -16,13 +16,17 @@ find_package(MPI REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # Add executable
-add_executable(FV_2D main.cpp)
+add_executable(FV_2D ./src/main.cpp)
 
 # Include directories
 target_include_directories(FV_2D PRIVATE
     ${PETSC_DIR}/include
     ${MPI_C_INCLUDE_PATH}
     /path/to/eigen3
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/flux
+    ${CMAKE_SOURCE_DIR}/include/implicit
+    ${CMAKE_SOURCE_DIR}/include/io
 )
 
 # Link PETSc and MPI (use full path to libpetsc.so)
