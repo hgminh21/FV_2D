@@ -125,7 +125,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, flow, solver, Q_in, Q_out);
+                write_output(mesh, Q, flow, solver, Q_in, dQx, dQy, Q_out);
                 
                 // Solutions file
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);

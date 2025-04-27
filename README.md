@@ -22,9 +22,9 @@ Example input file (`.in` format):
 ```in
 [solver]
 order_accuracy = 2       # Order of accuracy (e.g., 1 for first-order, 2 for second-order)
-max_step = 100           # Maximum number of time steps
-monitor_step = 10        # Frequency of printing residuals and coefficients
-output_step = 2500       # Frequency of writing output files
+max_step = 10000         # Maximum number of time steps
+monitor_step = 100       # Frequency of printing residuals and coefficients
+output_step = 1000       # Frequency of writing output files
 
 [meshfile]
 file = ./grid_file.in    # Path to mesh file
@@ -36,6 +36,9 @@ u = 0.85                 # Initial velocity in X-direction
 v = 0                    # Initial velocity in Y-direction
 p = 1                    # Initial pressure
 gamma = 1.4              # Specific heat ratio
+Pr = 0.72                # Prandtl number    (ignored if `type` = 1)
+R = 287                  # Gas constant      (ignored if `type` = 1)
+mu = 7.08662e-2          $ Dynamic viscosity (ignored if `type` = 1)
 
 [time]
 dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)

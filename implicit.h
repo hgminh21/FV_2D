@@ -134,7 +134,8 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, flow, solver, Q_in, Q_out);
+                write_output(mesh, Q, flow, solver, Q_in, dQx, dQy, Q_out);
+                
                 // Concatenate r_node and Q_out side-by-side (column-wise)
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);
                 output << mesh.r_node, Q_out;  // r_node (x, y) | Q_out (rho, rho*u, ...)
