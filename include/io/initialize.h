@@ -28,6 +28,7 @@ struct Flow {
     double T;
     double k;
     int type;
+    int use_lim;
 };
 
 struct Solver {
@@ -92,6 +93,7 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, T
             else if (key == "Pr") flow.Pr = std::stod(value);
             else if (key == "R") flow.R = std::stod(value);
             else if (key == "mu") flow.mu = std::stod(value);
+            else if (key == "use_lim") flow.use_lim = std::stoi(value);
         } else if (section == "[time]") {
             if (key == "dt") time.dt = std::stod(value);
             else if (key == "use_cfl") time.use_cfl = std::stoi(value);
@@ -149,7 +151,13 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
         std::cerr << "Unknown solver method. Please specify either 'implicit' or 'explicit'." << std::endl;
         exit(1);
     }
-    
+
+    if (flow.use_lim == 1) {
+        std::cout << "Using limiters." << std::endl;
+    } else {
+        std::cout << "Not using limiters." << std::endl;
+    }
+
     if (time.use_cfl == 1) {
         std::cout << "Using CFL condition for time-stepping." << std::endl;
         std::cout << "CFL number: " << time.CFL << std::endl;
@@ -160,6 +168,7 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
         }
     } else {
         std::cout << "Using fixed time-step." << std::endl;
+        std::cout << "Time-step size: " << time.dt << std::endl;
     }
 
     // Initial conserved variables

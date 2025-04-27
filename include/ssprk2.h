@@ -20,6 +20,10 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQx = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd dQy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd Q_max = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::MatrixXd Q_min = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+    Eigen::VectorXd phi = Eigen::VectorXd::Ones(mesh.n_cells);
+
     Eigen::MatrixXd Q_out = Eigen::MatrixXd::Zero(mesh.n_nodes, 4);
     Eigen::VectorXd s_max_all(mesh.n_faces);
     Eigen::MatrixXd F(mesh.n_faces, 4);
@@ -56,7 +60,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
-        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
+        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
         if (flow.type == 1) {
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
@@ -80,7 +84,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
         }
 
         // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp);
+        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
         if (flow.type == 1) {
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }

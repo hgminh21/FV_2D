@@ -17,6 +17,7 @@ gamma = 1.4
 Pr = 0.72
 R = 287
 mu = 7.08662e-2
+use_lim = 0
 
 [time]
 dt = 1e-4
