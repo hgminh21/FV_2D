@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <cstdlib>  // For std::exit
 #include <petscsys.h>  // Include for PetscInitialize/Finalize
+#include <chrono> // For timing 
 
 #include "io/initialize.h"
 #include "io/meshread.h"
@@ -10,6 +11,7 @@
 
 using namespace std;
 using namespace Eigen;
+using Clock = std::chrono::high_resolution_clock;
 
 int main(int argc, char* argv[]) {
 
@@ -33,10 +35,11 @@ int main(int argc, char* argv[]) {
     Solver solver;
     Time time;
 
+    auto t0 = Clock::now();   // Start
+
     // Initialize the mesh and flow data
     cout << "Initializing..." << endl;
     initialize(input_file, mesh, flow, solver, time, Q_init, Q);
-
     // Check if PETSc has been initialized; if not, initialize it
     PetscBool isMPIInitialized;
     PetscInitialized(&isMPIInitialized);
@@ -49,6 +52,8 @@ int main(int argc, char* argv[]) {
     }
 
     cout << "Finished initializing." << endl;
+    auto t1 = Clock::now();   // After initialization
+    std::cout << "Time elapsed for initialize = " << std::chrono::duration<double>(t1 - t0).count() << " s\n";
 
     cout << "================================================================================" << endl;
     cout << "Simulation started." << endl;
@@ -63,6 +68,8 @@ int main(int argc, char* argv[]) {
     }
 
     cout << "Simulation completed." << endl;
+    auto t2 = Clock::now();   // After initialization
+    std::cout << "Time elapsed simulation = " << std::chrono::duration<double>(t2 - t1).count() << " s\n";
     cout << "================================================================================" << endl;
 
     // Finalize PETSc

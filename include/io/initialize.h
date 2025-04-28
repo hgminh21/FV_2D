@@ -152,11 +152,14 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
         exit(1);
     }
 
-    if (flow.use_lim == 1) {
-        std::cout << "Using limiters." << std::endl;
-    } else {
+    if (flow.use_lim == 0) {
         std::cout << "Not using limiters." << std::endl;
+    } else if (flow.use_lim == 1) {
+        std::cout << "Using Squeeze limiter." << std::endl;
+    } else {
+        std::cout << "Using Venkat limiter." << std::endl;
     }
+
 
     if (time.use_cfl == 1) {
         std::cout << "Using CFL condition for time-stepping." << std::endl;

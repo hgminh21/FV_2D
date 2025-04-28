@@ -39,7 +39,7 @@ gamma = 1.4              # Specific heat ratio
 Pr = 0.72                # Prandtl number    (ignored if `type` = 1)
 R = 287                  # Gas constant      (ignored if `type` = 1)
 mu = 7.08662e-2          # Dynamic viscosity (ignored if `type` = 1)
-use_lim = 1              # 0: Not using limiter, 1: Using limiter (Barth limiter)
+use_lim = 1              # 0: Not using limiter, 1: Squeeze limiter, 2: Venkat limiter
 
 [time]
 dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)

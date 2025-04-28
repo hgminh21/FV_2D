@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <filesystem>
+// #include <chrono> // <--- testing 
 
 #include "io/meshread.h"
 #include "io/initialize.h"
@@ -13,6 +14,8 @@
 #include "rescomp.h"
 #include "io/writeout.h"
 #include "io/fnc.h"
+
+// using Clock = std::chrono::high_resolution_clock; // <--- testing 
 
 void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
     // Allocate containers for left and right face states, fluxes, and residual.
@@ -60,15 +63,21 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
+        // auto t0 = Clock::now();   // Start
         reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        // auto t1 = Clock::now();   // After part 1
+        // std::cout << "Time reconstruct = " << std::chrono::duration<double>(t1 - t0).count() << " s\n";
         if (flow.type == 1) {
             compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
         }
         else if (flow.type == 2) {
             compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
         }
+        // auto t2 = Clock::now();   // After part 2
+        // std::cout << "Time flux = " << std::chrono::duration<double>(t2 - t1).count() << " s\n";
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
-
+        // auto t3 = Clock::now();   // After part 2
+        // std::cout << "Time residual = " << std::chrono::duration<double>(t3 - t2).count() << " s\n";
         // Compute the intermediate state: Q_stage = Q^n + dt * L(Q^n)
         if (time.use_cfl == 1) {    // Use CFL condition
             if (time.local_dt == 0) { // Global time step
@@ -82,6 +91,8 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
         else {  // Use fixed time step
             Q1 = Q + time.dt * Res;
         }
+        // auto t4 = Clock::now();   // After part 2
+        // std::cout << "Time ssprk2 = " << std::chrono::duration<double>(t4 - t3).count() << " s\n";
 
         // Stage 2: Recompute the residual at the intermediate state.
         reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
