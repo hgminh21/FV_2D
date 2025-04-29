@@ -12,22 +12,22 @@
 #include "io/meshread.h"
 #include "io/initialize.h"
 
-inline void res_reconstruct(const MeshData &mesh, 
-                            const Eigen::MatrixXd &Res,
-                            const Eigen::MatrixXd &F,
-                            Eigen::MatrixXd &dResx,
-                            Eigen::MatrixXd &dResy,
-                            const Eigen::MatrixXd &dQx,
-                            const Eigen::MatrixXd &dQy,
-                            Eigen::MatrixXd &A_im1,
-                            Eigen::MatrixXd &A_im2,
-                            Eigen::MatrixXd &A_im3,
-                            Eigen::MatrixXd &A_im4,
-                            Eigen::MatrixXd &Resx1_temp,
-                            Eigen::MatrixXd &Resx2_temp,
-                            Eigen::MatrixXd &Resy1_temp,
-                            Eigen::MatrixXd &Resy2_temp,
-                            const Eigen::MatrixXd &I) 
+void res_reconstruct(const MeshData &mesh, 
+                    const Eigen::MatrixXd &Res,
+                    const Eigen::MatrixXd &F,
+                    Eigen::MatrixXd &dResx,
+                    Eigen::MatrixXd &dResy,
+                    const Eigen::MatrixXd &dQx,
+                    const Eigen::MatrixXd &dQy,
+                    Eigen::MatrixXd &A_im1,
+                    Eigen::MatrixXd &A_im2,
+                    Eigen::MatrixXd &A_im3,
+                    Eigen::MatrixXd &A_im4,
+                    Eigen::MatrixXd &Resx1_temp,
+                    Eigen::MatrixXd &Resx2_temp,
+                    Eigen::MatrixXd &Resy1_temp,
+                    Eigen::MatrixXd &Resy2_temp,
+                    const Eigen::MatrixXd &I) 
 {
     // Zero out matrices and temporaries
     A_im1.setZero();
@@ -39,7 +39,7 @@ inline void res_reconstruct(const MeshData &mesh,
     Resy1_temp.setZero();
     Resy2_temp.setZero();
 
-    const double eps = 1e-12;
+    const double eps = 1e-8;
 
     // Accumulate residual gradients
     for (int i = 0; i < mesh.n_faces; ++i) {
@@ -116,12 +116,16 @@ inline void res_reconstruct(const MeshData &mesh,
             double val_c1c1 = 0.0, val_c1c2 = 0.0;
 
             if (std::abs(dQx1) >= eps) val_c1c1 += dRx1 / dQx1;
+            else val_c1c1 += dRx1 / eps;
             if (std::abs(dQy1) >= eps) val_c1c1 += dRy1 / dQy1;
+            else val_c1c1 += dRy1 / eps;
             if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
                 val_c1c1 *= 0.5;
     
             if (std::abs(dQx2) >= eps) val_c1c2 += dRx1 / dQx2;
+            else val_c1c2 += dRx1 / eps;
             if (std::abs(dQy2) >= eps) val_c1c2 += dRy1 / dQy2;
+            else val_c1c2 += dRy1 / eps;
             if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
                 val_c1c2 *= 0.5;
             
@@ -129,12 +133,16 @@ inline void res_reconstruct(const MeshData &mesh,
             double val_c2c2 = 0.0, val_c2c1 = 0.0;
 
             if (std::abs(dQx2) >= eps) val_c2c2 += dRx2 / dQx2;
+            else val_c2c2 += dRx2 / eps; 
             if (std::abs(dQy2) >= eps) val_c2c2 += dRy2 / dQy2;
+            else val_c2c2 += dRy2 / eps;
             if (std::abs(dQx2) >= eps && std::abs(dQy2) >= eps)
                 val_c2c2 *= 0.5;
     
             if (std::abs(dQx1) >= eps) val_c2c1 += dRx2 / dQx1;
+            else val_c2c1 += dRx2 / eps;
             if (std::abs(dQy1) >= eps) val_c2c1 += dRy2 / dQy1;
+            else val_c2c1 += dRy2 / eps;
             if (std::abs(dQx1) >= eps && std::abs(dQy1) >= eps)
                 val_c2c1 *= 0.5;
 
