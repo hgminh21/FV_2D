@@ -14,6 +14,21 @@ mkdir build && cd build
 cmake ..
 cmake --build .
 ```
+## Execute instructions
+
+- Prepare your mesh file 
++ Mesh file need to be `.in` format
++ Only support face-based mesh (need face-to-node and face-to-cell connectivity)
++ Support arbitrary mesh (hybrid elements, hanging nodes, ghost cells, etc)
++ Ghost cell index 0 : wall boundary
++ Ghost cell index -1: free-stream boundary
+
+- Prepare your input file
+
+```bash
+./FV_2D ./input.in
+```
+
 
 ## Input File Instructions
 
