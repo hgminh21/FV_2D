@@ -54,13 +54,13 @@ gamma = 1.4              # Specific heat ratio
 Pr = 0.72                # Prandtl number    (ignored if `type` = 1)
 R = 287                  # Gas constant      (ignored if `type` = 1)
 mu = 7.08662e-2          # Dynamic viscosity (ignored if `type` = 1)
-use_lim = 1              # 0: Not using limiter, 1: Squeeze limiter, 2: Venkat limiter
+use_lim = 1              # 0: Not using limiter, 1: Squeeze limiter, 2: Venkat limiter (Only for 2nd-order)
 
 [time]
 dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)
 use_cfl = 0              # 0: Fixed time step, 1: CFL-based time step
 CFL = 1                  # CFL number (should be < 1)
-method = implicit        # Time-stepping method: "explicit" or "implicit" (implicit under development)
+method = implicit        # Time-stepping method: "explicit" or "implicit" (implicit under development, only works for 2nd-order)
 local_dt = 0             # 0: Global time step, 1: Local time step
 ```
 
