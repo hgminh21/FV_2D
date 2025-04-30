@@ -28,12 +28,10 @@ struct Flow {
     double T;
     double k;
     int type;
-    int use_lim;
 };
 
 struct Solver {
     int n_step;
-    int order;
     int m_step;
     int o_step;
 };
@@ -46,8 +44,17 @@ struct Time {
     int local_dt;
 };
 
+struct Reconstruct {
+    string method;
+    int use_lim;
+};
+
+struct Flux {
+    string method;
+};
+
 // Simple input parser (INI-style)
-bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, Time &time, std::string &mesh_file) {
+bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, Reconstruct &recon, Flux &flux, Time &time, std::string &mesh_file) {
     std::ifstream infile(filename);
     if (!infile) {
         std::cerr << "Error: Cannot open input file: " << filename << std::endl;
@@ -77,8 +84,7 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, T
         value.erase(value.find_last_not_of(" \t") + 1);
 
         if (section == "[solver]") {
-            if (key == "order_accuracy") solver.order = std::stoi(value);
-            else if (key == "max_step") solver.n_step = std::stoi(value);
+            if (key == "max_step") solver.n_step = std::stoi(value);
             else if (key == "monitor_step") solver.m_step = std::stoi(value);
             else if (key == "output_step") solver.o_step = std::stoi(value);
         } else if (section == "[meshfile]") {
@@ -93,7 +99,11 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, T
             else if (key == "Pr") flow.Pr = std::stod(value);
             else if (key == "R") flow.R = std::stod(value);
             else if (key == "mu") flow.mu = std::stod(value);
-            else if (key == "use_lim") flow.use_lim = std::stoi(value);
+        } else if (section == "[reconstruct]") {
+            if (key == "method") recon.method = value;
+            else if (key == "use_lim") recon.use_lim = std::stoi(value);
+        } else if (section == "[flux]") {
+            if (key == "method") flux.method = value;
         } else if (section == "[time]") {
             if (key == "dt") time.dt = std::stod(value);
             else if (key == "use_cfl") time.use_cfl = std::stoi(value);
@@ -107,12 +117,12 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, T
 }
 
 // Main initialization function
-void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Time &time, Vector4d &Q_init, MatrixXd &Q)
+void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Reconstruct &recon, Flux &flux, Time &time, Vector4d &Q_init, MatrixXd &Q)
 {
     std::string mesh_filename;
 
     // Parse config file
-    if (!parse_input_file(input_file, flow, solver, time, mesh_filename)) {
+    if (!parse_input_file(input_file, flow, solver, recon, flux, time, mesh_filename)) {
         std::cerr << "Input parsing failed. Check the input file format." << std::endl;
         exit(1);
     }
@@ -138,8 +148,38 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
 
     if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
     else if (flow.type == 2) {std::cout << "Equation : Navier-Stokes" << std::endl;}
-    if (solver.order == 1) {std::cout << "Order of accuracy : 1" << std::endl;}
-    else if (solver.order == 2) {std::cout << "Order of accuracy : 2" << std::endl;}
+
+    if (recon.method == "linear") {
+        std::cout << "Using linear reconstruction method." << std::endl;
+        // Implement implicit solver setup
+    } else if (recon.method == "least-square") {
+        std::cout << "Using least-square reconstruction method." << std::endl;
+        // Implement explicit solver setup
+    } else if (recon.method == "gauss-green") {
+        std::cout << "Using Gauss-Green reconstruction method." << std::endl;
+    } else {
+        std::cerr << "Unknown reconstruction method. Please specify either 'linear', 'least-square' or 'gauss-green'." << std::endl;
+        exit(1);
+    }
+
+    if (recon.use_lim == 0) {
+        std::cout << "Not using limiters." << std::endl;
+    } else if (recon.use_lim == 1) {
+        std::cout << "Using Squeeze limiter." << std::endl;
+    } else {
+        std::cout << "Using Venkat limiter." << std::endl;
+    }
+
+    if (flux.method == "lax-friedrichs") {
+        std::cout << "Using Lax-Friedrichs flux." << std::endl;
+    } else if (flux.method == "roe") {
+        std::cout << "Using Roe flux." << std::endl;
+    } else if (flux.method == "rusanov") {
+        std::cout << "Using Rusanov flux." << std::endl;
+    } else {
+        std::cerr << "Unknown flux method. Please specify either 'lax-friedrichs', 'roe' or 'rusanov'." << std::endl;
+        exit(1);
+    }
 
     if (time.method == "implicit") {
         std::cout << "Using implicit method." << std::endl;
@@ -151,15 +191,6 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
         std::cerr << "Unknown solver method. Please specify either 'implicit' or 'explicit'." << std::endl;
         exit(1);
     }
-
-    if (flow.use_lim == 0) {
-        std::cout << "Not using limiters." << std::endl;
-    } else if (flow.use_lim == 1) {
-        std::cout << "Using Squeeze limiter." << std::endl;
-    } else {
-        std::cout << "Using Venkat limiter." << std::endl;
-    }
-
 
     if (time.use_cfl == 1) {
         std::cout << "Using CFL condition for time-stepping." << std::endl;

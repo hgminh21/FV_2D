@@ -19,7 +19,8 @@ void compute_fluxes_vis(const MeshData &mesh,
                         const MatrixXd &Q_R,
                         const MatrixXd &dQx,
                         const MatrixXd &dQy,
-                        const Flow &flow,  // pass by const reference
+                        const Flow &flow,
+                        const Flux &flux,
                         MatrixXd &F,
                         VectorXd &s_max_all,
                         MatrixXd &F_viscous,
@@ -29,7 +30,7 @@ void compute_fluxes_vis(const MeshData &mesh,
                         MatrixXd &dVdn)
 {
     // Inviscid part
-    compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
+    compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
 
     F_viscous.setZero();
     Q_f.setZero();

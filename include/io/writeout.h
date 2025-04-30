@@ -11,6 +11,7 @@ void write_output(const MeshData &mesh,
                   const MatrixXd &Q,
                   const Flow &flow,
                   const Solver &solver,
+                  const Reconstruct &recon,
                   const Vector4d &Q_in,
                   const MatrixXd &dQx,
                   const MatrixXd &dQy,
@@ -18,7 +19,7 @@ void write_output(const MeshData &mesh,
 {
     Q_out = MatrixXd::Zero(mesh.n_nodes, 4);
     VectorXd n_shared = VectorXd::Zero(mesh.n_nodes);
-    if (solver.order == 1) {
+    if (recon.method == "linear") {
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;
             int c2 = mesh.f2c(i, 1) - 1;

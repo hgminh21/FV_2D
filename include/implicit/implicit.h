@@ -7,7 +7,9 @@
 
 #include "io/meshread.h"
 #include "io/initialize.h"
-#include "reconstruct.h"
+#include "reconstruct/reconLinear.h"
+#include "reconstruct/reconGG.h"
+#include "reconstruct/reconLS.h"
 #include "flux/fluxcomp.h"
 #include "flux/visfluxcomp.h"
 #include "rescomp.h"
@@ -21,7 +23,7 @@
 #include "implicit/solverLDLT.h"
 #include "implicit/solverLU.h"
 
-void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flow, const Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) 
+void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, const Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) 
 {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
@@ -76,12 +78,20 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
     // Time-stepping loop using implicit method
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
-        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        if (recon.method == "linear") {
+            reconstruct_linear(mesh, Q, Q_L, Q_R, Q_in, flow, solver);
+        }
+        else if (recon.method == "gauss-green") {
+            reconstruct_gaussgreen(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qy1_temp, Q_max, Q_min, phi);
+        }
+        else if (recon.method == "least-square") {
+            reconstruct_leastsquare(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        }
         if (flow.type == 1) {
-            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
+            compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, flux, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
         }
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
         Eigen::MatrixXd I = Eigen::MatrixXd::Identity(mesh.n_cells, mesh.n_cells);
@@ -137,7 +147,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, flow, solver, Q_in, dQx, dQy, Q_out);
+                write_output(mesh, Q, flow, solver, recon, Q_in, dQx, dQy, Q_out);
                 
                 // Concatenate r_node and Q_out side-by-side (column-wise)
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);

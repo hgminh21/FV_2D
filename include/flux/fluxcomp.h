@@ -16,12 +16,13 @@ void compute_fluxes(const MeshData &mesh,
                     const MatrixXd &Q_L,
                     const MatrixXd &Q_R,
                     const Flow &flow,
+                    const Flux &flux,
                     MatrixXd &F,
                     VectorXd &s_max_all) // NEW OUTPUT
 
 {
     F.setZero();
-        
+    
     for (int i = 0; i < mesh.n_faces; ++i) {
         double nx = mesh.n_f(i, 0);
         double ny = mesh.n_f(i, 1);
@@ -67,14 +68,62 @@ void compute_fluxes(const MeshData &mesh,
         double f3R = rhoR * vR * vnR + pR * ny;
         double f4R = vnR * (ER + pR);
 
-        // Lax-Friedrichs numerical flux
-        double s_max = max(abs(vnL) + cL, abs(vnR) + cR);
-        s_max_all(i) = s_max;
+        if (flux.method == "lax-friedrichs") {
+            // Lax-Friedrichs numerical flux
+            double s_max = max(abs(vnL) + cL, abs(vnR) + cR);
+            s_max_all(i) = s_max;
+            F(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
+            F(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
+            F(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
+            F(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
+        }
+        else if (flux.method == "rusanov") {
+            // Lax-Friedrichs numerical flux
+            double vn_avg = (abs(vnL) + abs(vnR)) / 2.0;
+            double c_avg = (cL + cR) / 2.0;
+            double s_max = (vn_avg + c_avg);
+            s_max_all(i) = s_max;
+            F(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
+            F(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
+            F(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
+            F(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
+        }
+        else if (flux.method == "roe") {
+            // Roe numerical flux
+            double rho_avg = sqrt(rhoL * rhoR);
+            double u_avg = (sqrt(rhoL) * uL + sqrt(rhoR) * uR) / (sqrt(rhoL) + sqrt(rhoR));
+            double v_avg = (sqrt(rhoL) * vL + sqrt(rhoR) * vR) / (sqrt(rhoL) + sqrt(rhoR));
+            double vn_avg = (sqrt(rhoL) * vnL + sqrt(rhoR) * vnR) / (sqrt(rhoL) + sqrt(rhoR));
+            double H_avg = (sqrt(rhoL) * (EL + pL) / rhoL + sqrt(rhoR) * (ER + pR) / rhoR) / (sqrt(rhoL) + sqrt(rhoR));
+            double c_avg = sqrt((flow.gamma - 1) * (H_avg - 0.5 * vn_avg * vn_avg));
+            double vn_l = u_avg * -ny + v_avg * nx;
+            double vn_s = u_avg * u_avg + v_avg * v_avg;
 
-        F(i, 0) = 0.5 * (f1L + f1R) - 0.5 * s_max * (Q_R(i, 0) - Q_L(i, 0));
-        F(i, 1) = 0.5 * (f2L + f2R) - 0.5 * s_max * (Q_R(i, 1) - Q_L(i, 1));
-        F(i, 2) = 0.5 * (f3L + f3R) - 0.5 * s_max * (Q_R(i, 2) - Q_L(i, 2));
-        F(i, 3) = 0.5 * (f4L + f4R) - 0.5 * s_max * (Q_R(i, 3) - Q_L(i, 3));
+            MatrixXd R(4 , 4);
+            R << 1.0, 1.0, 1.0, 0.0,
+                u_avg - c_avg * nx, u_avg, u_avg + c_avg * nx, -ny,
+                v_avg - c_avg * ny, v_avg, v_avg + c_avg * ny, nx,
+                H_avg - c_avg * vn_avg, vn_s * 0.5, H_avg + c_avg * vn_avg, vn_l;
+
+            MatrixXd A(4 ,4);
+            A << vn_avg - c_avg, 0.0, 0.0, 0.0,
+                0.0, vn_avg, 0.0, 0.0,
+                0.0, 0.0, vn_avg + c_avg, 0.0,
+                0.0, 0.0, 0.0, vn_avg;
+
+            MatrixXd A_abs = R * A * R.inverse();
+            s_max_all(i) = A_abs.cwiseAbs().maxCoeff();
+
+            // Convert row vectors to column vectors
+            VectorXd Q_R_col = Q_R.row(i).transpose();
+            VectorXd Q_L_col = Q_L.row(i).transpose();
+
+            RowVector4d f_D;
+            f_D << (f1L + f1R), (f2L + f2R), (f3L + f3R), (f4L + f4R);
+            VectorXd F_temp = 0.5 * f_D.transpose() - 0.5 * A_abs * (Q_R_col - Q_L_col);
+            F.row(i) = F_temp.transpose();
+        }
+
     }
 }
 

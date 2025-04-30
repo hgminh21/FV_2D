@@ -8,7 +8,9 @@
 
 #include "io/meshread.h"
 #include "io/initialize.h"
-#include "reconstruct.h"
+#include "reconstruct/reconLinear.h"
+#include "reconstruct/reconGG.h"
+#include "reconstruct/reconLS.h"
 #include "flux/fluxcomp.h"
 #include "flux/visfluxcomp.h"
 #include "rescomp.h"
@@ -17,7 +19,7 @@
 
 // using Clock = std::chrono::high_resolution_clock; // <--- testing 
 
-void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
+void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
@@ -64,14 +66,22 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
     for (int step = 0; step <= solver.n_step; ++step) {
         // Stage 1: Compute the residual using the current state Q.
         // auto t0 = Clock::now();   // Start
-        reconstruct(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        if (recon.method == "linear") {
+            reconstruct_linear(mesh, Q, Q_L, Q_R, Q_in, flow, solver);
+        }
+        else if (recon.method == "gauss-green") {
+            reconstruct_gaussgreen(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qy1_temp, Q_max, Q_min, phi);
+        }
+        else if (recon.method == "least-square") {
+            reconstruct_leastsquare(mesh, Q, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        }
         // auto t1 = Clock::now();   // After part 1
         // std::cout << "Time reconstruct = " << std::chrono::duration<double>(t1 - t0).count() << " s\n";
         if (flow.type == 1) {
-            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
+            compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, flux, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
         }
         // auto t2 = Clock::now();   // After part 2
         // std::cout << "Time flux = " << std::chrono::duration<double>(t2 - t1).count() << " s\n";
@@ -95,13 +105,23 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
         // std::cout << "Time ssprk2 = " << std::chrono::duration<double>(t4 - t3).count() << " s\n";
 
         // Stage 2: Recompute the residual at the intermediate state.
-        reconstruct(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        if (recon.method == "linear") {
+            reconstruct_linear(mesh, Q1, Q_L, Q_R, Q_in, flow, solver);
+        }
+        else if (recon.method == "gauss-green") {
+            reconstruct_gaussgreen(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qy1_temp, Q_max, Q_min, phi);
+        }
+        else if (recon.method == "least-square") {
+            reconstruct_leastsquare(mesh, Q1, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        }
+
         if (flow.type == 1) {
-            compute_fluxes(mesh, Q_L, Q_R, flow, F, s_max_all);
+            compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
         }
         else if (flow.type == 2) {
-            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, flux, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
         }
+
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
 
         // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
@@ -140,7 +160,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, Time &
 
             if (step % solver.o_step == 0) {
                 // Compute Q_out
-                write_output(mesh, Q, flow, solver, Q_in, dQx, dQy, Q_out);
+                write_output(mesh, Q, flow, solver, recon, Q_in, dQx, dQy, Q_out);
                 
                 // Solutions file
                 Eigen::MatrixXd output(mesh.r_node.rows(), 6);

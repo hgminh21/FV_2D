@@ -33,13 +33,15 @@ int main(int argc, char* argv[]) {
     MeshData mesh;
     Flow flow;
     Solver solver;
+    Reconstruct recon;
     Time time;
-
+    Flux flux;
+    
     auto t0 = Clock::now();   // Start
 
     // Initialize the mesh and flow data
     cout << "Initializing..." << endl;
-    initialize(input_file, mesh, flow, solver, time, Q_init, Q);
+    initialize(input_file, mesh, flow, solver, recon, flux, time, Q_init, Q);
     // Check if PETSc has been initialized; if not, initialize it
     PetscBool isMPIInitialized;
     PetscInitialized(&isMPIInitialized);
@@ -61,10 +63,10 @@ int main(int argc, char* argv[]) {
     // Run time integration
     if (time.method == "implicit") {
         // Perform tasks for the implicit method
-        implicit_scheme(mesh, solver, flow, time, Q, Q_init);
+        implicit_scheme(mesh, solver, flow, recon, flux, time, Q, Q_init);
     } else {
         // Handle other methods or default case
-        ssprk2(mesh, solver, flow, time, Q, Q_init);
+        ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
     }
 
     cout << "Simulation completed." << endl;
