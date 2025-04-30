@@ -5,11 +5,11 @@
 
 using namespace Eigen;
 
-double venkat_lim(const RowVectorXd Q_max,
-                  const RowVectorXd Q_min,
-                  const RowVectorXd Q,
-                  const RowVectorXd Q_f,
-                  double phi)
+RowVectorXd venkat_lim(const RowVectorXd Q_max,
+                        const RowVectorXd Q_min,
+                        const RowVectorXd Q,
+                        const RowVectorXd Q_f,
+                        RowVectorXd phi)
 {
     for (int j = 0; j < 4; ++j) {
         double delm = Q_f(j) - Q(j);
@@ -22,7 +22,7 @@ double venkat_lim(const RowVectorXd Q_max,
 
         double phif = (r * r + 2.0 * r) / (r * r + r + 2);
 
-        if (phif < phi) phi = phif;
+        if (phif < phi(j)) phi(j) = phif;
     }
 
     return phi;

@@ -5,11 +5,11 @@
 
 using namespace Eigen;
 
-double squeeze_lim(const RowVectorXd Q_max,
-                   const RowVectorXd Q_min,
-                   const RowVectorXd Q,
-                   const RowVectorXd Q_f,
-                   double phi)
+RowVectorXd squeeze_lim(const RowVectorXd Q_max,
+                        const RowVectorXd Q_min,
+                        const RowVectorXd Q,
+                        const RowVectorXd Q_f,
+                        RowVectorXd phi)
 {
     for (int j = 0; j < 4; ++j) {
         double phif;
@@ -22,7 +22,7 @@ double squeeze_lim(const RowVectorXd Q_max,
         else {
             phif = 1.0;
         }
-    if (phif < phi) phi = phif;
+    if (phif < phi(j)) phi(j) = phif;
     }
 
     return phi;

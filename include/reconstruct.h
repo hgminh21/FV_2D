@@ -40,13 +40,15 @@ inline void reconstruct(const MeshData &mesh,
                         MatrixXd &Qy2_temp,
                         MatrixXd &Q_max,
                         MatrixXd &Q_min,
-                        VectorXd &phi)
+                        MatrixXd &phi)
 {
     // reset accumulators and limiter
     Qx1_temp.setZero();
     Qx2_temp.setZero();
     Qy1_temp.setZero();
     Qy2_temp.setZero();
+    Q_max = Q;
+    Q_min = Q;
     phi.setOnes();
 
     // First-order reconstruction
@@ -138,26 +140,23 @@ inline void reconstruct(const MeshData &mesh,
             }
             // store min/max for limiters
             if (flow.use_lim > 0) {
-                if (c2 >= 0) {
-                    for (int j = 0; j < 4; ++j) {
-                        double q1j = Q1(j), q2j = Q2(j);
-                        Q_max(c1,j) = std::max(q1j, q2j);
-                        Q_min(c1,j) = std::min(q1j, q2j);
-                        Q_max(c2,j) = Q_max(c1,j);
-                        Q_min(c2,j) = Q_min(c1,j);
+                for (int j = 0; j < 4; ++j) {
+                    double Qmax_temp = std::max(Q1(j), Q_max(c1,j));
+                    double Qmin_temp = std::min(Q1(j), Q_min(c1,j));
+                    if (c2 >= 0) {
+                            Q_max(c1,j) = std::max(Qmax_temp, Q2(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q2(j));
+                            Q_max(c2,j) = Q_max(c1,j);
+                            Q_min(c2,j) = Q_min(c1,j);
                     }
-                }
-                else if (c2 == -1) {
-                    // using Qg from wall BC above
-                    for (int j = 0; j < 4; ++j) {
-                        Q_max(c1,j) = std::max(Q1(j), dQ(j)+Q1(j));
-                        Q_min(c1,j) = std::min(Q1(j), dQ(j)+Q1(j));
+                    else if (c2 == -1) {
+                        // using Qg from wall BC above
+                            Q_max(c1,j) = std::max(Qmax_temp, dQ(j)+Q1(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, dQ(j)+Q1(j));
                     }
-                }
-                else { // free-stream
-                    for (int j = 0; j < 4; ++j) {
-                        Q_max(c1,j) = std::max(Q1(j), Q_in(j));
-                        Q_min(c1,j) = std::min(Q1(j), Q_in(j));
+                    else { // free-stream
+                            Q_max(c1,j) = std::max(Qmax_temp, Q_in(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q_in(j));
                     }
                 }
             }
@@ -210,28 +209,34 @@ inline void reconstruct(const MeshData &mesh,
                 int c2 = mesh.f2c(i,1)-1;
                 if (c2 < 0) continue;
                 if (flow.use_lim == 1) {
-                    phi(c1) = squeeze_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi(c1));
-                    phi(c2) = squeeze_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi(c2));
+                    phi.row(c1) = squeeze_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1));
+                    phi.row(c2) = squeeze_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2));
                 } else {
-                    phi(c1) = venkat_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi(c1));
-                    phi(c2) = venkat_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi(c2));
+                    phi.row(c1) = venkat_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1));
+                    phi.row(c2) = venkat_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2));
                 }
             }
             // rebuild limited states
             for (int i = 0; i < mesh.n_faces; ++i) {
-                int c1 = mesh.f2c(i,0)-1;
-                int c2 = mesh.f2c(i,1)-1;
-                double x1=mesh.r_c(c1,0),y1=mesh.r_c(c1,1);
-                double xf=mesh.r_f(i,0),yf=mesh.r_f(i,1);
-                double dfx1=xf-x1,dfy1=yf-y1;
-                Q_L.row(i) = Q.row(c1)
-                            + phi(c1)*(dQx.row(c1)*dfx1 + dQy.row(c1)*dfy1);
-                if (c2<0) continue;
-                double x2=mesh.r_c(c2,0),y2=mesh.r_c(c2,1);
-                double dfx2=xf-x2,dfy2=yf-y2;
-                Q_R.row(i) = Q.row(c2)
-                            + phi(c2)*(dQx.row(c2)*dfx2 + dQy.row(c2)*dfy2);
+                int c1 = mesh.f2c(i, 0) - 1;
+                int c2 = mesh.f2c(i, 1) - 1;
+                
+                double x1 = mesh.r_c(c1, 0), y1 = mesh.r_c(c1, 1);
+                double xf = mesh.r_f(i, 0), yf = mesh.r_f(i, 1);
+                double dfx1 = xf - x1, dfy1 = yf - y1;
+            
+                // Element-wise multiplication for Q_L
+                Q_L.row(i) = Q.row(c1) + (phi.row(c1).array() * (dQx.row(c1).array() * dfx1 + dQy.row(c1).array() * dfy1).array()).matrix();
+                
+                if (c2 < 0) continue;  // Skip if c2 is invalid (negative index)
+            
+                double x2 = mesh.r_c(c2, 0), y2 = mesh.r_c(c2, 1);
+                double dfx2 = xf - x2, dfy2 = yf - y2;
+            
+                // Element-wise multiplication for Q_R
+                Q_R.row(i) = Q.row(c2) + (phi.row(c2).array() * (dQx.row(c2).array() * dfx2 + dQy.row(c2).array() * dfy2).array()).matrix();
             }
+            
         }
     }
 }

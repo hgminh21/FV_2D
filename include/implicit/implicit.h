@@ -32,7 +32,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
     Eigen::MatrixXd dQt = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Q_max = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Q_min = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
-    Eigen::VectorXd phi = Eigen::VectorXd::Ones(mesh.n_cells);
+    Eigen::MatrixXd phi = Eigen::MatrixXd::Ones(mesh.n_cells, 4);
 
     Eigen::VectorXd s_max_all(mesh.n_faces);
     Eigen::MatrixXd F(mesh.n_faces, 4);
