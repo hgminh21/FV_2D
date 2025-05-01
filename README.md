@@ -2,6 +2,35 @@
 
 A 2D finite volume solver for compressible flows.
 
+## Features
+
+- Flexible Governing Equations
+   + Supports both inviscid (Euler) and viscous (Navier-Stokes) flow simulations (2nd-order only for Navier-Stokes).
+
+- Hybrid Mesh Support
+   + Reads unstructured 2D meshes from external mesh files.
+
+- Initial Flow Specification
+   + User-defined initial conditions for density, velocity components, pressure, and thermodynamic properties.
+
+- Second-Order Reconstruction Schemes
+   + Gradient reconstruction via linear, least-square, or gauss-green methods.
+   + Optional slope limiters: Squeeze or Venkatakrishnan (2nd-order only).
+
+- Multiple Riemann Solvers
+   + Choice of flux calculation methods: Rusanov, Lax-Friedrichs, or Roe.
+
+- Flexible Time Integration
+
+   + Supports both explicit and implicit schemes (implicit under development).
+   + Time step control: Fixed or CFL-based.
+   + Global or local time stepping.
+
+- Simulation Control
+   + Configurable number of steps, output frequency, and residual monitoring.
+   + Clean and modular input through a human-readable config file.
+   + Real-time visualization capability with Tecplot 360.
+
 ## Dependencies
 
 - [Eigen](https://eigen.tuxfamily.org/) (header-only library)
@@ -36,7 +65,6 @@ Example input file (`.in` format):
 
 ```in
 [solver]
-order_accuracy = 2       # Order of accuracy (e.g., 1 for first-order, 2 for second-order)
 max_step = 10000         # Maximum number of time steps
 monitor_step = 100       # Frequency of printing residuals and coefficients
 output_step = 1000       # Frequency of writing output files
@@ -54,7 +82,13 @@ gamma = 1.4              # Specific heat ratio
 Pr = 0.72                # Prandtl number    (ignored if `type` = 1)
 R = 287                  # Gas constant      (ignored if `type` = 1)
 mu = 7.08662e-2          # Dynamic viscosity (ignored if `type` = 1)
+
+[reconstruct]
+method = least-square    # reconstruction method: "linear", "least-square" or "gauss-green"
 use_lim = 1              # 0: Not using limiter, 1: Squeeze limiter, 2: Venkat limiter (Only for 2nd-order)
+
+[flux]
+method = rusanov         # Riemann solver: "rusanov", "lax-friedrichs" or "roe"
 
 [time]
 dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)

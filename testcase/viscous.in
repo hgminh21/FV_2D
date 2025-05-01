@@ -1,8 +1,7 @@
 [solver]
-order_accuracy = 2
-max_step = 100
-monitor_step = 20
-output_step = 100
+max_step = 100000
+monitor_step = 200
+output_step = 10000
 
 [meshfile]
 file = ./grid_file.in
@@ -17,11 +16,17 @@ gamma = 1.4
 Pr = 0.72
 R = 287
 mu = 7.08662e-2
-use_lim = 0
+
+[reconstruct]
+method = least-square
+use_lim = 1
+
+[flux]
+method = lax-friedrichs
 
 [time]
 dt = 1e-4
 use_cfl = 0
 CFL = 1
-method = implicit
+method = explicit
 local_dt = 0

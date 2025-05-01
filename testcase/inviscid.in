@@ -1,7 +1,6 @@
 [solver]
-order_accuracy = 2
-max_step = 100
-monitor_step = 10
+max_step = 100000
+monitor_step = 500
 output_step = 2500
 
 [meshfile]
@@ -14,7 +13,13 @@ u = 0.85
 v = 0
 p = 1
 gamma = 1.4
+
+[reconstruct]
+method = gauss-green
 use_lim = 1
+
+[flux]
+method = rusanov
 
 [time]
 dt = 1e-4
