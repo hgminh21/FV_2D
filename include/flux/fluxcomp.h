@@ -94,10 +94,12 @@ void compute_fluxes(const MeshData &mesh,
             double u_avg = (sqrt(rhoL) * uL + sqrt(rhoR) * uR) / (sqrt(rhoL) + sqrt(rhoR));
             double v_avg = (sqrt(rhoL) * vL + sqrt(rhoR) * vR) / (sqrt(rhoL) + sqrt(rhoR));
             double vn_avg = (sqrt(rhoL) * vnL + sqrt(rhoR) * vnR) / (sqrt(rhoL) + sqrt(rhoR));
-            double H_avg = (sqrt(rhoL) * (EL + pL) / rhoL + sqrt(rhoR) * (ER + pR) / rhoR) / (sqrt(rhoL) + sqrt(rhoR));
-            double c_avg = sqrt((flow.gamma - 1) * (H_avg - 0.5 * vn_avg * vn_avg));
-            double vn_l = u_avg * -ny + v_avg * nx;
+            double c_avg = (sqrt(rhoL) * cL + sqrt(rhoR) * cR) / (sqrt(rhoL) + sqrt(rhoR));
+            double H_avg = (sqrt(rhoL) * (EL + pL) + sqrt(rhoR) * (ER + pR)) / (sqrt(rhoL) + sqrt(rhoR)) / rho_avg;
+            // double c_avg = sqrt((flow.gamma - 1.0) * (H_avg - 0.5 * vn_avg * vn_avg));
+            double vn_l = -u_avg * ny + v_avg * nx;
             double vn_s = u_avg * u_avg + v_avg * v_avg;
+            double sigma = (flow.gamma - 1.0) / (c_avg * c_avg); 
 
             MatrixXd R(4 , 4);
             R << 1.0, 1.0, 1.0, 0.0,
@@ -106,12 +108,19 @@ void compute_fluxes(const MeshData &mesh,
                 H_avg - c_avg * vn_avg, vn_s * 0.5, H_avg + c_avg * vn_avg, vn_l;
 
             MatrixXd A(4 ,4);
-            A << vn_avg - c_avg, 0.0, 0.0, 0.0,
-                0.0, vn_avg, 0.0, 0.0,
-                0.0, 0.0, vn_avg + c_avg, 0.0,
-                0.0, 0.0, 0.0, vn_avg;
+            A << abs(vn_avg - c_avg), 0.0, 0.0, 0.0,
+                0.0, abs(vn_avg), 0.0, 0.0,
+                0.0, 0.0, abs(vn_avg + c_avg), 0.0,
+                0.0, 0.0, 0.0, abs(vn_avg);
 
-            MatrixXd A_abs = R * A * R.inverse();
+            MatrixXd L(4, 4);
+            L << 0.5 * (0.5 * sigma * vn_s + vn_avg / c_avg), -0.5 * (sigma * u_avg + nx / c_avg), -0.5 * (sigma * v_avg + ny / c_avg), 0.5 * sigma,
+                1 - 0.5 * sigma * vn_s, sigma * u_avg, sigma * v_avg, -sigma,
+                0.5 * (0.5 * sigma * vn_s - vn_avg / c_avg), -0.5 * (sigma * u_avg - nx / c_avg), -0.5 * (sigma * v_avg - ny / c_avg), 0.5 * sigma,
+                -vn_l, -ny, nx, 0.0;
+
+            // MatrixXd A_abs = R * A * R.inverse();
+            MatrixXd A_abs = R * A * L;
             s_max_all(i) = A_abs.cwiseAbs().maxCoeff();
 
             // Convert row vectors to column vectors
