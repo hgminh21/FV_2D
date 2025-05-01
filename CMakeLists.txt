@@ -24,9 +24,6 @@ target_include_directories(FV_2D PRIVATE
     ${MPI_C_INCLUDE_PATH}
     /path/to/eigen3
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/flux
-    ${CMAKE_SOURCE_DIR}/include/implicit
-    ${CMAKE_SOURCE_DIR}/include/io
 )
 
 # Link PETSc and MPI (use full path to libpetsc.so)
