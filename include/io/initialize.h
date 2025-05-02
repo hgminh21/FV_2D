@@ -147,50 +147,53 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
     // Load mesh
     mesh = readMesh(mesh_filename);
     cout << "Finished reading mesh from " << mesh_filename << endl;
-
+    
     if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
     else if (flow.type == 2) {std::cout << "Equation : Navier-Stokes" << std::endl;}
 
+    std::cout << "Reconstruction options: " << std::endl;
     if (recon.method == "linear") {
-        std::cout << "Using linear reconstruction method." << std::endl;
+        std::cout << "  Using linear reconstruction method." << std::endl;
         // Implement implicit solver setup
     } else if (recon.method == "least-square") {
-        std::cout << "Using least-square reconstruction method." << std::endl;
+        std::cout << "  Using least-square reconstruction method." << std::endl;
         // Implement explicit solver setup
     } else if (recon.method == "gauss-green") {
-        std::cout << "Using Gauss-Green reconstruction method." << std::endl;
+        std::cout << "  Using Gauss-Green reconstruction method." << std::endl;
     } else {
         std::cerr << "Unknown reconstruction method. Please specify either 'linear', 'least-square' or 'gauss-green'." << std::endl;
         exit(1);
     }
 
     if (recon.use_lim == 0) {
-        std::cout << "Not using limiters." << std::endl;
+        std::cout << "  Not using limiters." << std::endl;
     } else if (recon.use_lim == 1) {
-        std::cout << "Using Squeeze limiter." << std::endl;
+        std::cout << "  Using Squeeze limiter." << std::endl;
     } else {
-        std::cout << "Using Venkat limiter." << std::endl;
+        std::cout << "  Using Venkat limiter." << std::endl;
     }
 
+    std::cout << "Flux solver options: " << std::endl;
     if (flux.method == "lax-friedrichs") {
-        std::cout << "Using Lax-Friedrichs flux." << std::endl;
+        std::cout << "  Using Lax-Friedrichs flux." << std::endl;
     } else if (flux.method == "roe") {
-        std::cout << "Using Roe flux." << std::endl;
+        std::cout << "  Using Roe flux." << std::endl;
     } else if (flux.method == "rusanov") {
-        std::cout << "Using Rusanov flux." << std::endl;
+        std::cout << "  Using Rusanov flux." << std::endl;
     } else {
         std::cerr << "Unknown flux method. Please specify either 'lax-friedrichs', 'roe' or 'rusanov'." << std::endl;
         exit(1);
     }
 
+    std::cout << "Time-stepping options: " << std::endl;
     if (time.method == "implicit") {
-        std::cout << "Using implicit method." << std::endl;
+        std::cout << "  Using implicit method." << std::endl;
     } else if (time.method == "explicit") {
-        std::cout << "Using explicit method." << std::endl;
+        std::cout << "  Using explicit method." << std::endl;
         if (time.rk_steps == 2) {
-            std::cout << "Using SSPRK2 time-stepping." << std::endl;
+            std::cout << "  Using SSPRK2 time-stepping." << std::endl;
         } else if (time.rk_steps == 3) {
-            std::cout << "Using SSPRK3 time-stepping." << std::endl;
+            std::cout << "  Using SSPRK3 time-stepping." << std::endl;
         } else {
             std::cerr << "Unknown Runge-Kutta steps. Please specify either 2 or 3." << std::endl;
             exit(1);
@@ -201,16 +204,16 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
     }
 
     if (time.use_cfl == 1) {
-        std::cout << "Using CFL condition for time-stepping." << std::endl;
-        std::cout << "CFL number: " << time.CFL << std::endl;
+        std::cout << "  Using CFL condition for time-stepping." << std::endl;
+        std::cout << "  CFL number: " << time.CFL << std::endl;
         if (time.local_dt == 1) {
-            std::cout << "Using local time-stepping." << std::endl;
+            std::cout << "  Using local time-stepping." << std::endl;
         } else {
-            std::cout << "Using global time-stepping." << std::endl;
+            std::cout << "  Using global time-stepping." << std::endl;
         }
     } else {
-        std::cout << "Using fixed time-step." << std::endl;
-        std::cout << "Time-step size: " << time.dt << std::endl;
+        std::cout << "  Using fixed time-step." << std::endl;
+        std::cout << "  Time-step size: " << time.dt << std::endl;
     }
 
     // Initial conserved variables

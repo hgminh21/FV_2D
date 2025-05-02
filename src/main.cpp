@@ -1,4 +1,7 @@
 #include <iostream>
+#include <iomanip>
+#include <string>
+
 #include <Eigen/Dense>
 #include <cstdlib>  // For std::exit
 #include <petscsys.h>  // Include for PetscInitialize/Finalize
@@ -17,44 +20,45 @@ using Clock = std::chrono::high_resolution_clock;
 
 int main(int argc, char* argv[]) {
 
-    cout << "============================= UNIVERSITY OF KANSAS =============================" << endl;
-    cout << "=========================== FINITE VOLUME CFD SOLVER ===========================" << endl;
-    cout << "=============================== By Hoang Minh To ===============================" << endl;
-
     // Check if the user has provided an input file as an argument
     // 1) Default to all hardware threads
     int nt = omp_get_max_threads();
-    std::string infile;
+    string infile;
     
     // 2) Simple flag parser: -t N for threads, then the input file
     for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-t" && i+1 < argc) {
-            nt = std::atoi(argv[++i]);          // consume the thread count
+        string arg = argv[i];
+        if (arg == "-t" && i + 1 < argc) {
+            int nt2 = atoi(argv[++i]);
+            if (nt2 <= nt) {
+                nt = nt2;
+            } else {
+                cerr << "Warning: -t N must be <= " << nt << "\n";
+                return 1;
+            }
         }
         else if (infile.empty()) {
-            infile = arg;                       // first non-flag = infile
+            infile = arg;  // first non-flag = infile
         }
         else {
-            std::cerr << "Unknown argument: " << arg << "\n";
+            cerr << "Unknown argument: " << arg << "\n";
             return 1;
         }
     }
 
     // 3) Must have an input file
     if (infile.empty()) {
-        std::cerr << "Usage: " << argv[0] << " [-t N] <input>\n";
+        cerr << "Usage: " << argv[0] << " [-t N] <input>\n";
         return 1;
     }
 
     // 4) Tell OpenMP how many threads to use
     omp_set_num_threads(nt);
-    std::cout << "Running with " << nt << " OpenMP threads\n";
 
     // REMOVE -t FROM argv SO THE SOLVER NEVER SEES IT
     int w = 1;  // write‐index: keep argv[0]
     for (int r = 1; r < argc; ++r) {
-        std::string s = argv[r];
+        string s = argv[r];
         if (s == "-t" && r+1 < argc) {
             // skip both "-t" and its numeric argument
             ++r;
@@ -66,6 +70,36 @@ int main(int argc, char* argv[]) {
     argc = w;
     argv[w] = nullptr;  // just in case any parser walks argv[] to a nullptr
 
+    string build_date = __DATE__; 
+    // Fixed box width (match your overall box width)
+    const int box_width = 81;  // Width of the box (between the borders)
+    string left_content = "║ Threads: " + to_string(nt) + "   Build Date: " + build_date;
+    int left_content_length = left_content.length() - 1;
+    int remaining_space = box_width - left_content_length;
+
+    cout << "==============================The University of Kansas============================" << endl;
+    std::cout << std::endl;
+    cout << "╔════════════════════════════════════════════════════════════════════════════════╗" << endl;
+    cout << "║ .----------------.  .----------------.  .----------------.  .----------------. ║" << endl;
+    cout << "║| .--------------. || .--------------. || .--------------. || .--------------. |║" << endl;
+    cout << "║| |  _________   | || | ____   ____  | || |    _____     | || |  ________    | |║" << endl;
+    cout << "║| | |_   ___  |  | || ||_  _| |_  _| | || |   / ___ `.   | || | |_   ___ `.  | |║" << endl;
+    cout << "║| |   | |_  \\_|  | || |  \\ \\   / /   | || |  |_/___) |   | || |   | |   `. \\ | |║" << endl;
+    cout << "║| |   |  _|      | || |   \\ \\ / /    | || |   .'____.'   | || |   | |    | | | |║" << endl;
+    cout << "║| |  _| |_       | || |    \\ ' /     | || |  / /____     | || |  _| |___.' / | |║" << endl;
+    cout << "║| | |_____|      | || |     \\_/      | || |  |_______|   | || | |________.'  | |║" << endl;
+    cout << "║| |              | || |              | || |              | || |              | |║" << endl;
+    cout << "║| '--------------' || '--------------' || '--------------' || '--------------' |║" << endl;
+    cout << "║ '----------------'  '----------------'  '----------------'  '----------------' ║" << endl;
+    cout << "║                             Finite Volume CFD Solver                           ║" << endl;
+    cout << "║                                by Hoang Minh To                                ║" << endl;
+    cout << "║                     Computational Fluid Dynamics Laboratory                    ║" << endl;
+    cout << "║                         Aerospace Engineering Department                       ║" << endl;
+    cout << "╠════════════════════════════════════════════════════════════════════════════════╣" << endl;
+    cout << left_content;
+    cout << setw(remaining_space) << " " << " ║" << endl;
+    cout << "╚════════════════════════════════════════════════════════════════════════════════╝" << endl;
+    std::cout << std::endl;
     Vector4d Q_init;
     MatrixXd Q;
     MeshData mesh;
@@ -75,10 +109,9 @@ int main(int argc, char* argv[]) {
     Time time;
     Flux flux;
     
-    auto t0 = Clock::now();   // Start
-
     // Initialize the mesh and flow data
-    cout << "Initializing..." << endl;
+    cout << "==================================Initializing====================================" << endl;
+    auto t0 = Clock::now();   // Start
     initialize(infile, mesh, flow, solver, recon, flux, time, Q_init, Q);
     // Check if PETSc has been initialized; if not, initialize it
     PetscBool isMPIInitialized;
@@ -86,17 +119,16 @@ int main(int argc, char* argv[]) {
     if (!isMPIInitialized) {
         PetscErrorCode ierr = PetscInitialize(&argc, &argv, nullptr, "Usage: ...");
         if (ierr) {
-            std::cerr << "PETSc initialization failed!" << std::endl;
+            cerr << "PETSc initialization failed!" << endl;
             return 1;  // Exit with error
         }
     }
 
     cout << "Finished initializing." << endl;
     auto t1 = Clock::now();   // After initialization
-    std::cout << "Time elapsed for initialize = " << std::chrono::duration<double>(t1 - t0).count() << " s\n";
-
-    cout << "================================================================================" << endl;
-    cout << "Simulation started." << endl;
+    cout << "Time elapsed for initialize = " << chrono::duration<double>(t1 - t0).count() << " s\n";
+    std::cout << std::endl;
+    cout << "================================Simulation started================================" << endl;
 
     // Run time integration
     if (time.method == "implicit") {
@@ -114,8 +146,8 @@ int main(int argc, char* argv[]) {
 
     cout << "Simulation completed." << endl;
     auto t2 = Clock::now();   // After initialization
-    std::cout << "Time elapsed simulation = " << std::chrono::duration<double>(t2 - t1).count() << " s\n";
-    cout << "================================================================================" << endl;
+    cout << "Time elapsed simulation = " << chrono::duration<double>(t2 - t1).count() << " s\n";
+    cout << "==============================Simulation Successful===============================" << endl;
 
     // Finalize PETSc
     PetscFinalize();
