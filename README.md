@@ -21,10 +21,14 @@ A 2D finite volume solver for compressible flows.
    + Choice of flux calculation methods: Rusanov, Lax-Friedrichs, or Roe.
 
 - Flexible Time Integration
-
    + Supports both explicit and implicit schemes (implicit under development).
    + Time step control: Fixed or CFL-based.
    + Global or local time stepping.
+
+- Multi-threading Support
+   + Accelerated computation using OpenMP-based parallelization.
+   + Efficient use of multi-core CPUs for faster simulation runs.
+   + Thread count configurable at runtime.
 
 - Simulation Control
    + Configurable number of steps, output frequency, and residual monitoring.
@@ -55,7 +59,7 @@ cmake --build .
 - Prepare your input file
 
 ```bash
-./FV_2D ./input.in
+./FV_2D -t 16 ./input.in   # Use 16 threads (example: adjust based on your CPU)
 ```
 
 
@@ -95,6 +99,7 @@ dt = 1e-4                # Fixed time step (ignored if `use_cfl` = 1)
 use_cfl = 0              # 0: Fixed time step, 1: CFL-based time step
 CFL = 1                  # CFL number (should be < 1)
 method = implicit        # Time-stepping method: "explicit" or "implicit" (implicit under development, only works for 2nd-order)
+rk_steps = 2             # number of ssprk stages, supported ssprk2 and ssprk 3 (ignored if `method` = implicit )
 local_dt = 0             # 0: Global time step, 1: Local time step
 ```
 

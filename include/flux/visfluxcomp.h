@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iostream> 
 
+#include <omp.h>
 #include "io/meshread.h"
 #include "io/initialize.h"
 #include "flux/fluxcomp.h"
@@ -41,6 +42,7 @@ void compute_fluxes_vis(const MeshData &mesh,
 
     int j = 0;
 
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i, 0) - 1;
         int c2 = mesh.f2c(i, 1) - 1;

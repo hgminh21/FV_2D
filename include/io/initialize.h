@@ -41,6 +41,7 @@ struct Time {
     int use_cfl;
     double CFL;
     string method;
+    int rk_steps;
     int local_dt;
 };
 
@@ -109,6 +110,7 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, R
             else if (key == "use_cfl") time.use_cfl = std::stoi(value);
             else if (key == "CFL") time.CFL = std::stod(value);
             else if (key == "method") time.method = value;
+            else if (key == "rk_steps") time.rk_steps = std::stoi(value);
             else if (key == "local_dt") time.local_dt = std::stoi(value);
         }
     }
@@ -183,10 +185,16 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
 
     if (time.method == "implicit") {
         std::cout << "Using implicit method." << std::endl;
-        // Implement implicit solver setup
     } else if (time.method == "explicit") {
         std::cout << "Using explicit method." << std::endl;
-        // Implement explicit solver setup
+        if (time.rk_steps == 2) {
+            std::cout << "Using SSPRK2 time-stepping." << std::endl;
+        } else if (time.rk_steps == 3) {
+            std::cout << "Using SSPRK3 time-stepping." << std::endl;
+        } else {
+            std::cerr << "Unknown Runge-Kutta steps. Please specify either 2 or 3." << std::endl;
+            exit(1);
+        }
     } else {
         std::cerr << "Unknown solver method. Please specify either 'implicit' or 'explicit'." << std::endl;
         exit(1);

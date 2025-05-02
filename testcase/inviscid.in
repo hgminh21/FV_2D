@@ -26,4 +26,5 @@ dt = 1e-4
 use_cfl = 1
 CFL = 1
 method = explicit
+rk_steps = 2
 local_dt = 1

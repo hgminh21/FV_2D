@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 
+#include <omp.h>
 #include "io/meshread.h"
 #include "io/initialize.h"
 #include "limiter/squeeze.h"
@@ -39,6 +40,7 @@ void reconstruct_leastsquare(const MeshData &mesh,
     Q_min = Q;
     phi.setOnes();
 
+    #pragma omp parallel for
     // Second-order reconstruction
     // accumulate gradient contributions
     for (int i = 0; i < mesh.n_faces; ++i) {
@@ -80,37 +82,52 @@ void reconstruct_leastsquare(const MeshData &mesh,
             dy = -2.0*(y1 - yf)*ny;
         }
         // inline update to avoid lambda
-        double Iyy1 = mesh.Iyy(c1), Ixy1 = mesh.Ixy(c1), Ixx1 = mesh.Ixx(c1);
-        Qx1_temp.row(c1) += dQ * (dx * Iyy1);
-        Qx2_temp.row(c1) += dQ * (dy * Ixy1);
-        Qy1_temp.row(c1) += dQ * (dy * Ixx1);
-        Qy2_temp.row(c1) += dQ * (dx * Ixy1);
-        if (c2 >= 0) {
-            double Iyy2 = mesh.Iyy(c2), Ixy2 = mesh.Ixy(c2), Ixx2 = mesh.Ixx(c2);
-            Qx1_temp.row(c2) += dQ * (dx * Iyy2);
-            Qx2_temp.row(c2) += dQ * (dy * Ixy2);
-            Qy1_temp.row(c2) += dQ * (dy * Ixx2);
-            Qy2_temp.row(c2) += dQ * (dx * Ixy2);
+        for (int j = 0; j < 4; ++j) {
+            #pragma omp atomic
+            Qx1_temp(c1, j) += dQ(j) * (dx * mesh.Iyy(c1));
+    
+            #pragma omp atomic
+            Qx2_temp(c1, j) += dQ(j) * (dy * mesh.Ixy(c1));
+    
+            #pragma omp atomic
+            Qy1_temp(c1, j) += dQ(j) * (dy * mesh.Ixx(c1));
+    
+            #pragma omp atomic
+            Qy2_temp(c1, j) += dQ(j) * (dx * mesh.Ixy(c1));
+    
+            if (c2 >= 0) {
+                #pragma omp atomic
+                Qx1_temp(c2, j) += dQ(j) * (dx * mesh.Iyy(c2));
+                #pragma omp atomic
+                Qx2_temp(c2, j) += dQ(j) * (dy * mesh.Ixy(c2));
+                #pragma omp atomic
+                Qy1_temp(c2, j) += dQ(j) * (dy * mesh.Ixx(c2));
+                #pragma omp atomic
+                Qy2_temp(c2, j) += dQ(j) * (dx * mesh.Ixy(c2));
+            }
         }
         // store min/max for limiters
         if (recon.use_lim > 0) {
-            for (int j = 0; j < 4; ++j) {
-                double Qmax_temp = std::max(Q1(j), Q_max(c1,j));
-                double Qmin_temp = std::min(Q1(j), Q_min(c1,j));
-                if (c2 >= 0) {
-                        Q_max(c1,j) = std::max(Qmax_temp, Q2(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, Q2(j));
-                        Q_max(c2,j) = Q_max(c1,j);
-                        Q_min(c2,j) = Q_min(c1,j);
-                }
-                else if (c2 == -1) {
-                    // using Qg from wall BC above
-                        Q_max(c1,j) = std::max(Qmax_temp, dQ(j)+Q1(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, dQ(j)+Q1(j));
-                }
-                else { // free-stream
-                        Q_max(c1,j) = std::max(Qmax_temp, Q_in(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, Q_in(j));
+            #pragma omp critical
+            {
+                for (int j = 0; j < 4; ++j) {
+                    double Qmax_temp = std::max(Q1(j), Q_max(c1,j));
+                    double Qmin_temp = std::min(Q1(j), Q_min(c1,j));
+                    if (c2 >= 0) {
+                            Q_max(c1,j) = std::max(Qmax_temp, Q2(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q2(j));
+                            Q_max(c2,j) = Q_max(c1,j);
+                            Q_min(c2,j) = Q_min(c1,j);
+                    }
+                    else if (c2 == -1) {
+                        // using Qg from wall BC above
+                            Q_max(c1,j) = std::max(Qmax_temp, dQ(j)+Q1(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, dQ(j)+Q1(j));
+                    }
+                    else { // free-stream
+                            Q_max(c1,j) = std::max(Qmax_temp, Q_in(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q_in(j));
+                    }
                 }
             }
         }
@@ -119,7 +136,8 @@ void reconstruct_leastsquare(const MeshData &mesh,
     // final gradient
     dQx = Qx1_temp - Qx2_temp;
     dQy = Qy1_temp - Qy2_temp;
-
+    
+    #pragma omp parallel for schedule(dynamic)
     // compute left/right states
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i,0)-1;
@@ -158,6 +176,7 @@ void reconstruct_leastsquare(const MeshData &mesh,
 
     // apply limiter
     if (recon.use_lim > 0) {
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i,0)-1;
             int c2 = mesh.f2c(i,1)-1;
@@ -171,6 +190,7 @@ void reconstruct_leastsquare(const MeshData &mesh,
             }
         }
         // rebuild limited states
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;
             int c2 = mesh.f2c(i, 1) - 1;

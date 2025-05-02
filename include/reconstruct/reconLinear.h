@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
+#include <omp.h>
 
 #include "io/meshread.h"
 #include "io/initialize.h"
@@ -20,6 +21,7 @@ void reconstruct_linear(const MeshData &mesh,
 {
 
     // First-order reconstruction
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i,0) - 1;
         int c2 = mesh.f2c(i,1) - 1;

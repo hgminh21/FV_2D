@@ -6,8 +6,10 @@
 
 #include "io/initialize.h"
 #include "io/meshread.h"
-#include "ssprk2.h"
+#include "explicit/ssprk3.h"
+#include "explicit/ssprk2.h"
 #include "implicit/implicit.h"
+#include <omp.h> 
 
 using namespace std;
 using namespace Eigen;
@@ -20,13 +22,49 @@ int main(int argc, char* argv[]) {
     cout << "=============================== By Hoang Minh To ===============================" << endl;
 
     // Check if the user has provided an input file as an argument
-    if (argc < 2) {
-        cerr << "Error: Please specify the input file path as a command-line argument." << endl;
-        return 1; // Exit with an error code
+    // 1) Default to all hardware threads
+    int nt = omp_get_max_threads();
+    std::string infile;
+    
+    // 2) Simple flag parser: -t N for threads, then the input file
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-t" && i+1 < argc) {
+            nt = std::atoi(argv[++i]);          // consume the thread count
+        }
+        else if (infile.empty()) {
+            infile = arg;                       // first non-flag = infile
+        }
+        else {
+            std::cerr << "Unknown argument: " << arg << "\n";
+            return 1;
+        }
     }
 
-    // Get the input file path from the command-line arguments
-    const char* input_file = argv[1];
+    // 3) Must have an input file
+    if (infile.empty()) {
+        std::cerr << "Usage: " << argv[0] << " [-t N] <input>\n";
+        return 1;
+    }
+
+    // 4) Tell OpenMP how many threads to use
+    omp_set_num_threads(nt);
+    std::cout << "Running with " << nt << " OpenMP threads\n";
+
+    // REMOVE -t FROM argv SO THE SOLVER NEVER SEES IT
+    int w = 1;  // write‐index: keep argv[0]
+    for (int r = 1; r < argc; ++r) {
+        std::string s = argv[r];
+        if (s == "-t" && r+1 < argc) {
+            // skip both "-t" and its numeric argument
+            ++r;
+        }
+        else {
+            argv[w++] = argv[r];
+        }
+    }
+    argc = w;
+    argv[w] = nullptr;  // just in case any parser walks argv[] to a nullptr
 
     Vector4d Q_init;
     MatrixXd Q;
@@ -41,7 +79,7 @@ int main(int argc, char* argv[]) {
 
     // Initialize the mesh and flow data
     cout << "Initializing..." << endl;
-    initialize(input_file, mesh, flow, solver, recon, flux, time, Q_init, Q);
+    initialize(infile, mesh, flow, solver, recon, flux, time, Q_init, Q);
     // Check if PETSc has been initialized; if not, initialize it
     PetscBool isMPIInitialized;
     PetscInitialized(&isMPIInitialized);
@@ -66,7 +104,12 @@ int main(int argc, char* argv[]) {
         implicit_scheme(mesh, solver, flow, recon, flux, time, Q, Q_init);
     } else {
         // Handle other methods or default case
-        ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
+        if (time.rk_steps == 2) {
+            ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
+        } else if (time.rk_steps == 3) {
+            // Perform tasks for the explicit method
+            ssprk3(mesh, solver, flow, recon, flux, time, Q, Q_init);
+        }
     }
 
     cout << "Simulation completed." << endl;

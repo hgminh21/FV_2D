@@ -1,10 +1,10 @@
-#ifndef SSPRK2_H
-#define SSPRK2_H
+#ifndef SSPRK3_H
+#define SSPRK3_H
 
 #include <Eigen/Dense>
 #include <iostream>
 #include <filesystem>
-// #include <chrono> // <--- testing 
+#include <chrono> // <--- testing 
 
 #include "io/meshread.h"
 #include "io/initialize.h"
@@ -17,9 +17,9 @@
 #include "io/writeout.h"
 #include "io/fnc.h"
 
-// using Clock = std::chrono::high_resolution_clock; // <--- testing 
+using Clock = std::chrono::high_resolution_clock; // <--- testing 
 
-void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
+void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
@@ -35,7 +35,8 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
     Eigen::MatrixXd Res(mesh.n_cells, 4);
     Eigen::VectorXd dt_local(mesh.n_cells);
     Eigen::MatrixXd Q1 = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
-    
+    Eigen::MatrixXd Q2 = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
+
     Eigen::MatrixXd Qx1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Qx2_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Qy1_temp = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
@@ -124,18 +125,52 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
 
         compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
 
-        // Final update: Q^(n+1) = 0.5 * (Q^n + Q_stage + dt * L(Q_stage))
+        // update: Q_stage2 = 0.75 * Q^n + 0.25 * (Q_stage1 + dt * L(Q_stage1))
         if (time.use_cfl == 1) {    // Use CFL condition
             if (time.local_dt == 0) { // Global time step
                 double dt_glob = dt_local.minCoeff();
-                Q = 0.5 * Q + 0.5 * (Q1 + dt_glob * Res);
+                Q2 = 0.75 * Q + 0.25 * (Q1 + dt_glob * Res);
             }
             else {  // Local time step
-                Q = 0.5 * Q + 0.5 * (Q1 + dt_local.asDiagonal() * Res);
+                Q2 = 0.75 * Q + 0.25 * (Q1 + dt_local.asDiagonal() * Res);
             }
         }
         else {
-            Q = 0.5 * Q + 0.5 * (Q1 + time.dt * Res);
+            Q2 = 0.75 * Q + 0.25 * (Q1 + time.dt * Res);
+        }
+
+        // Stage 3: Recompute the residual at the intermediate state.
+        if (recon.method == "linear") {
+            reconstruct_linear(mesh, Q2, Q_L, Q_R, Q_in, flow, solver);
+        }
+        else if (recon.method == "gauss-green") {
+            reconstruct_gaussgreen(mesh, Q2, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qy1_temp, Q_max, Q_min, phi);
+        }
+        else if (recon.method == "least-square") {
+            reconstruct_leastsquare(mesh, Q2, Q_L, Q_R, dQx, dQy, Q_in, flow, solver, recon, Qx1_temp, Qx2_temp, Qy1_temp, Qy2_temp, Q_max, Q_min, phi);
+        }
+
+        if (flow.type == 1) {
+            compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
+        }
+        else if (flow.type == 2) {
+            compute_fluxes_vis(mesh, Q_L, Q_R, dQx, dQy, flow, flux, F, s_max_all, F_viscous, Q_f, dQ_fx, dQ_fy, dVdn);
+        }
+
+        compute_residual(mesh, F, s_max_all, solver, time, Res, dt_local);
+
+        // Final update: Q^(n+1) = 1/3 * Q^n + 2/3 * (Q_stage2 + dt * L(Q_stage2))
+        if (time.use_cfl == 1) {    // Use CFL condition
+            if (time.local_dt == 0) { // Global time step
+                double dt_glob = dt_local.minCoeff();
+                Q = 1.0 / 3.0 * Q + 2.0 / 3.0 * (Q2 + dt_glob * Res);
+            }
+            else {  // Local time step
+                Q = 1.0 / 3.0 * Q + 2.0 / 3.0 * (Q2 + dt_local.asDiagonal() * Res);
+            }
+        }
+        else {
+            Q2 = 1.0 / 3.0 * Q + 2.0 / 3.0 * (Q2 + time.dt * Res);
         }
 
         //  Print progress info every few steps.
@@ -199,4 +234,4 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
     }
 }
 
-#endif  // SSPRK2_H
+#endif  // SSPRK3_H

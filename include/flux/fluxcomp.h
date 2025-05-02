@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 
+#include <omp.h> 
 #include "io/meshread.h"
 #include "io/initialize.h"
 
@@ -23,6 +24,7 @@ void compute_fluxes(const MeshData &mesh,
 {
     F.setZero();
     
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < mesh.n_faces; ++i) {
         double nx = mesh.n_f(i, 0);
         double ny = mesh.n_f(i, 1);

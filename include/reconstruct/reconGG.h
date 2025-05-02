@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <fstream>
 #include <iostream>
+#include <omp.h>
 
 #include "io/meshread.h"
 #include "io/initialize.h"
@@ -37,6 +38,7 @@ void reconstruct_gaussgreen(const MeshData &mesh,
 
     // Second-order reconstruction
     // accumulate gradient contributions
+    #pragma omp parallel for
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i,0) - 1;
         int c2 = mesh.f2c(i,1) - 1;
@@ -82,32 +84,44 @@ void reconstruct_gaussgreen(const MeshData &mesh,
                   (sqrt(dx1 * dx1 + dy1 * dy1) + sqrt(dx2 * dx2 + dy2 * dy2));
         }
         // inline update to avoid lambda
-        Qx1_temp.row(c1) += Qf * nx * A / V1;
-        Qy1_temp.row(c1) += Qf * ny * A / V1;
-        if (c2 >= 0) {
-            double V2 = mesh.V(c2);
-            Qx1_temp.row(c2) -= Qf * nx * A / V2;
-            Qy1_temp.row(c2) -= Qf * ny * A / V2;
+        for (int j = 0; j < 4; ++j) {
+            #pragma omp atomic
+            Qx1_temp(c1, j) += Qf(j) * nx * A / V1;
+    
+            #pragma omp atomic
+            Qy1_temp(c1, j) += Qf(j) * ny * A / V1;
+    
+            if (c2 >= 0) {
+                double V2 = mesh.V(c2);
+                #pragma omp atomic
+                Qx1_temp(c2, j) -= Qf(j) * nx * A / V2;
+         
+                #pragma omp atomic
+                Qy1_temp(c2, j) -= Qf(j) * ny * A / V2;
+            }
         }
         // store min/max for limiters
         if (recon.use_lim > 0) {
-            for (int j = 0; j < 4; ++j) {
-                double Qmax_temp = std::max(Q1(j), Q_max(c1,j));
-                double Qmin_temp = std::min(Q1(j), Q_min(c1,j));
-                if (c2 >= 0) {
-                        Q_max(c1,j) = std::max(Qmax_temp, Q2(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, Q2(j));
-                        Q_max(c2,j) = Q_max(c1,j);
-                        Q_min(c2,j) = Q_min(c1,j);
-                }
-                else if (c2 == -1) {
-                    // using Qg from wall BC above
-                        Q_max(c1,j) = std::max(Qmax_temp, Qg(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, Qg(j));
-                }
-                else { // free-stream
-                        Q_max(c1,j) = std::max(Qmax_temp, Q_in(j));
-                        Q_min(c1,j) = std::min(Qmin_temp, Q_in(j));
+            #pragma omp critical
+            {
+                for (int j = 0; j < 4; ++j) {
+                    double Qmax_temp = std::max(Q1(j), Q_max(c1,j));
+                    double Qmin_temp = std::min(Q1(j), Q_min(c1,j));
+                    if (c2 >= 0) {
+                            Q_max(c1,j) = std::max(Qmax_temp, Q2(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q2(j));
+                            Q_max(c2,j) = Q_max(c1,j);
+                            Q_min(c2,j) = Q_min(c1,j);
+                    }
+                    else if (c2 == -1) {
+                        // using Qg from wall BC above
+                            Q_max(c1,j) = std::max(Qmax_temp, Qg(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Qg(j));
+                    }
+                    else { // free-stream
+                            Q_max(c1,j) = std::max(Qmax_temp, Q_in(j));
+                            Q_min(c1,j) = std::min(Qmin_temp, Q_in(j));
+                    }
                 }
             }
         }
@@ -117,6 +131,7 @@ void reconstruct_gaussgreen(const MeshData &mesh,
     dQx = Qx1_temp;
     dQy = Qy1_temp;
 
+    #pragma omp parallel for schedule(dynamic)
     // compute left/right states
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c(i,0)-1;
@@ -155,6 +170,7 @@ void reconstruct_gaussgreen(const MeshData &mesh,
 
     // apply limiter
     if (recon.use_lim > 0) {
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i,0)-1;
             int c2 = mesh.f2c(i,1)-1;
@@ -168,6 +184,7 @@ void reconstruct_gaussgreen(const MeshData &mesh,
             }
         }
         // rebuild limited states
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;
             int c2 = mesh.f2c(i, 1) - 1;
