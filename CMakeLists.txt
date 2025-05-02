@@ -24,7 +24,7 @@ add_executable(FV_2D ./src/main.cpp)
 # Include directories
 target_include_directories(FV_2D PRIVATE
     ${PETSC_DIR}/include
-    ${EIGEN_DIR}/include
+    ${EIGEN_DIR}
     ${MPI_C_INCLUDE_PATH}
     ${CMAKE_SOURCE_DIR}/include
 )
@@ -39,5 +39,5 @@ target_link_libraries(FV_2D PRIVATE
 
 # Output directory
 set_target_properties(FV_2D PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY /home/h728t025/work/programs/bin
+    RUNTIME_OUTPUT_DIRECTORY /path/to/ouput/folder
 )
