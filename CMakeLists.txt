@@ -8,7 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Find PETSc
 # PETSc directory hint from user
-set(PETSC_DIR "" CACHE PATH "Path to the PETSc installation directory")
+# set(PETSC_DIR "" CACHE PATH "Path to the PETSc installation directory")
+set(PETSC_DIR $ENV{PETSC_DIR} CACHE PATH "Path to the PETSc installation directory")
 
 # Try to find PETSc include dir
 find_path(PETSC_INCLUDE_DIR
@@ -35,14 +36,23 @@ message(STATUS "Found PETSc library: ${PETSC_LIBRARY}")
 
 
 # Find Eigen
-find_path(EIGEN_DIR
-    NAMES Eigen
-    PATH_SUFFIXES eigen3
-    DOC "Path to Eigen3 headers"
-)
+set(EIGEN_DIR $ENV{EIGEN_DIR} CACHE PATH "Path to Eigen3 headers")
+
+# If EIGEN_DIR is not set from the environment, attempt to find it
 if(NOT EIGEN_DIR)
-    message(FATAL_ERROR "Could not find Eigen3. Please set EIGEN_DIR manually with -DEIGEN_DIR=/path/to/eigen3")
+    find_path(EIGEN_DIR
+        NAMES Eigen
+        PATH_SUFFIXES eigen3
+        DOC "Path to Eigen3 headers"
+    )
+    
+    # If EIGEN_DIR is still not found, give an error
+    if(NOT EIGEN_DIR)
+        message(FATAL_ERROR "Could not find Eigen3. Please set EIGEN_DIR manually with -DEIGEN_DIR=/path/to/eigen3")
+    endif()
 endif()
+
+message(STATUS "Found Eigen3 headers in: ${EIGEN_DIR}")
 
 # Find MPI
 find_package(MPI REQUIRED)
