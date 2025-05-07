@@ -27,7 +27,7 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
     Eigen::MatrixXd dQy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Q_max = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd Q_min = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
-    Eigen::MatrixXd phi = Eigen::MatrixXd::Ones(mesh.n_cells, 4);
+    Eigen::MatrixXd phi = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
 
     Eigen::MatrixXd Q_out = Eigen::MatrixXd::Zero(mesh.n_nodes, 4);
     Eigen::VectorXd s_max_all(mesh.n_faces);
@@ -47,10 +47,10 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
     Eigen::MatrixXd dQ_fx = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fy = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     
-    Eigen::MatrixXd dVdn = Eigen::MatrixXd::Zero(mesh.n_fwalls, 2);
+    Eigen::VectorXd dVdn = Eigen::VectorXd::Zero(mesh.n_fwalls);
     Eigen::VectorXd CP = Eigen::VectorXd::Zero(mesh.n_fwalls);
-    Eigen::VectorXd TauX = Eigen::VectorXd::Zero(mesh.n_fwalls);
-    Eigen::VectorXd TauY = Eigen::VectorXd::Zero(mesh.n_fwalls);
+    Eigen::VectorXd TauW = Eigen::VectorXd::Zero(mesh.n_fwalls);
+    Eigen::VectorXd Cf = Eigen::VectorXd::Zero(mesh.n_fwalls);
 
     std::filesystem::create_directory("sol");
 
@@ -61,7 +61,7 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
     if (!outfile.is_open()) {
         std::cerr << "Error opening file!" << std::endl;
     }
-    outfile << "variables=iter, res1, res2, res3, res4, CL, CD" << std::endl;
+    outfile << "variables=iter, res1, res2, res3, res4, Fx, Fy, CL, CD" << std::endl;
 
     // Time-stepping loop using SSP RK2 method.
     for (int step = 0; step <= solver.n_step; ++step) {
@@ -175,8 +175,8 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
 
         //  Print progress info every few steps.
             if (step % solver.m_step == 0) {
-                double CL, CD;
-                forceNcoef_cal(mesh, flow, Q, Q_in, dVdn, CL, CD, CP, TauX, TauY);
+                double CL, CD, Fx, Fy;
+                forceNcoef_cal(mesh, flow, Q, Q_in, dVdn, CL, CD, Fx, Fy, CP, TauW, Cf);
                 std::cout << "Completed step " << step << " of " << solver.n_step << std::endl;
                 // Compute L2 norms for each column of the residual
                 double res1 = Res.col(0).norm();
@@ -190,7 +190,7 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
                         << "res4 = " << res4 << std::endl;
 
                 // Save to file in the format: step res1 res2 res3 res4
-                outfile << step << " " << res1 << " " << res2 << " " << res3 << " " << res4 << " " << CL << " " << CD << std::endl;                
+                outfile << step << " " << res1 << " " << res2 << " " << res3 << " " << res4 << " " << Fx << " " << Fy  << " " << CL << " " << CD << std::endl;                
             }
 
             if (step % solver.o_step == 0) {
@@ -225,8 +225,8 @@ void ssprk3(const MeshData &mesh, const Solver &solver, const Flow &flow, const 
                 std::string filename2 = "sol/surf_output_" + std::to_string(step) + ".dat";
                 std::ofstream out2(filename2);
                 Eigen::MatrixXd output2(mesh.n_fwalls, 5);
-                output2 << mesh.r_w, CP, TauX, TauY;
-                out2 << "variables=X, Y, CP, TauX, TauY \n";
+                output2 << mesh.r_w, CP, TauW, Cf;
+                out2 << "variables=X, Y, CP, TauW, Cf \n";
                 out2 << output2;
                 out2.close();                   
             } 

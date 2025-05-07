@@ -55,7 +55,7 @@ void implicit_scheme(const MeshData &mesh, const Solver &solver, const Flow &flo
     Eigen::MatrixXd Q_f = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fx = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd dQ_fy = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
-    Eigen::MatrixXd dVdn = Eigen::MatrixXd::Zero(mesh.n_fwalls, 2);
+    Eigen::VectorXd dVdn = Eigen::VectorXd::Zero(mesh.n_fwalls, 2);
 
     Eigen::MatrixXd dResx = Eigen::MatrixXd::Zero(mesh.n_cells, 4);
     Eigen::MatrixXd dResy = Eigen::MatrixXd::Zero(mesh.n_cells, 4);

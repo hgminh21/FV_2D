@@ -47,7 +47,9 @@ struct Time {
 
 struct Reconstruct {
     string method;
-    int use_lim;
+    string use_lim;
+    double lim_thres = 0;
+    double lim_tol = 0;
 };
 
 struct Flux {
@@ -102,7 +104,9 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, R
             else if (key == "mu") flow.mu = std::stod(value);
         } else if (section == "[reconstruct]") {
             if (key == "method") recon.method = value;
-            else if (key == "use_lim") recon.use_lim = std::stoi(value);
+            else if (key == "use_lim") recon.use_lim = value;
+            else if (key == "lim_thres") recon.lim_thres = std::stod(value);
+            else if (key == "lim_tol") recon.lim_tol = std::stod(value);
         } else if (section == "[flux]") {
             if (key == "method") flux.method = value;
         } else if (section == "[time]") {
@@ -165,12 +169,20 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
         exit(1);
     }
 
-    if (recon.use_lim == 0) {
+    if (recon.use_lim.empty()) {
+        recon.use_lim = "nolim"; // Default to no limiter
+        std::cout << "  No limiter method specified. Defaulting to 'nolim' (no limiter)." << std::endl;
+    } else if (recon.use_lim == "nolim") {
         std::cout << "  Not using limiters." << std::endl;
-    } else if (recon.use_lim == 1) {
+    } else if (recon.use_lim == "squeeze") {
         std::cout << "  Using Squeeze limiter." << std::endl;
-    } else {
+    } else if (recon.use_lim == "venkat") {
         std::cout << "  Using Venkat limiter." << std::endl;
+    } else if (recon.use_lim == "vanleer") {
+        std::cout << "  Using Van Leer limiter." << std::endl;
+    } else {
+        std::cerr << "Unknown limiter method. Please specify either 'nolim', 'squeeze', 'venkat', or 'vanleer'." << std::endl;
+        exit(1);
     }
 
     std::cout << "Flux solver options: " << std::endl;

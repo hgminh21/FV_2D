@@ -1,33 +1,33 @@
 [solver]
 max_step = 100000
-monitor_step = 200
-output_step = 10000
+monitor_step = 500
+output_step = 5000
 
 [meshfile]
-file = ./grid_file.in
+file = ../grid_file.in
 
 [flow]
 type = 2
 rho = 1.225
-u = 2.8925e+2
+u = 170.1470
 v = 0
-p = 1.01325e+5
+p = 101325
 gamma = 1.4
 Pr = 0.72
 R = 287
-mu = 7.08662e-2
+mu = 4.1686e-2
 
 [reconstruct]
 method = least-square
-use_lim = 1
+use_lim = nolim
 
 [flux]
 method = lax-friedrichs
 
 [time]
 dt = 1e-4
-use_cfl = 0
+use_cfl = 1
 CFL = 1
 method = explicit
 rk_steps = 2
-local_dt = 0
+local_dt = 1

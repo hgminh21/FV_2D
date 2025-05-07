@@ -28,7 +28,7 @@ void compute_fluxes_vis(const MeshData &mesh,
                         MatrixXd &Q_f,
                         MatrixXd &dQ_fx,
                         MatrixXd &dQ_fy,
-                        MatrixXd &dVdn)
+                        VectorXd &dVdn)
 {
     // Inviscid part
     compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
@@ -37,9 +37,7 @@ void compute_fluxes_vis(const MeshData &mesh,
     Q_f.setZero();
     dQ_fx.setZero();
     dQ_fy.setZero();
-    
-    double dux, duy, dvx, dvy, dTx, dTy;
-
+      
     int j = 0;
 
     #pragma omp parallel for schedule(static)
@@ -49,6 +47,8 @@ void compute_fluxes_vis(const MeshData &mesh,
 
         double nx = mesh.n_f(i, 0);
         double ny = mesh.n_f(i, 1);
+
+        double dux, duy, dvx, dvy, dTx, dTy;
 
         Q_f.row(i) = 0.5 * (Q_L.row(i) + Q_R.row(i));
         double rho = Q_f(i, 0);
@@ -96,10 +96,12 @@ void compute_fluxes_vis(const MeshData &mesh,
 
             double dun = -uL / mag;
             double dvn = -vL / mag;
-            
-            dVdn(j, 0) = dun;
-            dVdn(j, 1) = dvn;
-            j += 1;
+            double VL = uL * nx + vL * ny;
+
+            #pragma omp critical
+            {
+                dVdn(j++) = -VL / mag;
+            }
 
             dux = dun * nx;
             duy = dun * ny;

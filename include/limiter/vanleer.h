@@ -1,12 +1,12 @@
-#ifndef VENKAT_H
-#define VENKAT_H
+#ifndef VANLEER_H
+#define VANLEER_H
 
 #include <Eigen/Dense>
 #include <io/initialize.h>
 
 using namespace Eigen;
 
-RowVectorXd venkat_lim(const RowVectorXd Q_max,
+RowVectorXd vanleer_lim(const RowVectorXd Q_max,
                         const RowVectorXd Q_min,
                         const RowVectorXd Q,
                         const RowVectorXd Q_f,
@@ -28,8 +28,7 @@ RowVectorXd venkat_lim(const RowVectorXd Q_max,
         
         double r = delm/delp;
 
-        double phif = (r * r + 2.0 * r + recon.lim_tol * recon.lim_tol) 
-                        / (r * r + r + 2 + recon.lim_tol * recon.lim_tol);
+        double phif = (r + abs(r)) / (1.0 + abs(r) + recon.lim_tol);
 
         phi(j) = std::min(phi(j), 1.0);
         phi(j) = std::min(phi(j), phif);
@@ -40,4 +39,4 @@ RowVectorXd venkat_lim(const RowVectorXd Q_max,
     return phi;
 }
 
-#endif  // VENKAT_H
+#endif  // VANLEER_H

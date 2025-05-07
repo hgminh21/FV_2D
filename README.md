@@ -15,7 +15,7 @@ A 2D finite volume solver for compressible flows.
 
 - Second-Order Reconstruction Schemes
    + Gradient reconstruction via linear, least-square, or gauss-green methods.
-   + Optional slope limiters: Squeeze or Venkatakrishnan (2nd-order only).
+   + Optional slope limiters: Squeeze, Venkatakrishnan or Van-leer (2nd-order only).
 
 - Multiple Riemann Solvers
    + Choice of flux calculation methods: Rusanov, Lax-Friedrichs, or Roe.
@@ -89,7 +89,9 @@ mu = 7.08662e-2          # Dynamic viscosity (ignored if `type` = 1)
 
 [reconstruct]
 method = least-square    # reconstruction method: "linear", "least-square" or "gauss-green"
-use_lim = 1              # 0: Not using limiter, 1: Squeeze limiter, 2: Venkat limiter (Only for 2nd-order)
+use_lim = nolim          # flux limiter method: "nolim", "squeeze", "venkat" or "vanleer"
+lim_thres = 0.05         # limiter overshoot threshold (only for 'squeeze')
+lim_tol = 1e-6           # limiter tolerance
 
 [flux]
 method = rusanov         # Riemann solver: "rusanov", "lax-friedrichs" or "roe"

@@ -1,25 +1,25 @@
 [solver]
-max_step = 100000
-monitor_step = 500
-output_step = 2500
+max_step = 30000
+monitor_step = 100
+output_step = 2000
 
 [meshfile]
-file = ./grid_file.in
+file = ../../grid_file.in
 
 [flow]
 type = 1
 rho = 1.4
-u = 0.85
-v = 0
+u = 0.849871
+v = 0.014835
 p = 1
 gamma = 1.4
 
 [reconstruct]
-method = gauss-green
-use_lim = 1
+method = green-gauss
+use_lim = vanleer
 
 [flux]
-method = rusanov
+method = lax-friedrichs
 
 [time]
 dt = 1e-4

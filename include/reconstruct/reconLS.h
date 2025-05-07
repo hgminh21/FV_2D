@@ -10,6 +10,7 @@
 #include "io/initialize.h"
 #include "limiter/squeeze.h"
 #include "limiter/venkat.h"
+#include "limiter/vanleer.h"
 
 using namespace Eigen;
 
@@ -38,7 +39,11 @@ void reconstruct_leastsquare(const MeshData &mesh,
     Qy2_temp.setZero();
     Q_max = Q;
     Q_min = Q;
-    phi.setOnes();
+    phi.setConstant(2.0);
+
+    int lim_trigger;
+    if (recon.use_lim == "nolim") {lim_trigger = 0;}
+    else {lim_trigger = 1;}
 
     #pragma omp parallel for
     // Second-order reconstruction
@@ -107,7 +112,7 @@ void reconstruct_leastsquare(const MeshData &mesh,
             }
         }
         // store min/max for limiters
-        if (recon.use_lim > 0) {
+        if (lim_trigger > 0) {
             #pragma omp critical
             {
                 for (int j = 0; j < 4; ++j) {
@@ -175,22 +180,32 @@ void reconstruct_leastsquare(const MeshData &mesh,
     }
 
     // apply limiter
-    if (recon.use_lim > 0) {
-        #pragma omp parallel for schedule(dynamic)
+    if (lim_trigger > 0) {
+        #pragma omp parallel for schedule(static)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i,0)-1;
             int c2 = mesh.f2c(i,1)-1;
-            if (c2 < 0) continue;
-            if (recon.use_lim == 1) {
-                phi.row(c1) = squeeze_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1));
-                phi.row(c2) = squeeze_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2));
+            if (recon.use_lim == "squeeze") {
+                phi.row(c1) = squeeze_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
+            } else if (recon.use_lim == "venkat") {
+                phi.row(c1) = venkat_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
             } else {
-                phi.row(c1) = venkat_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1));
-                phi.row(c2) = venkat_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2));
+                phi.row(c1) = vanleer_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
+            }
+            if (c2 < 0) continue;
+            if (recon.use_lim == "squeeze") {
+                phi.row(c1) = squeeze_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
+                phi.row(c2) = squeeze_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2), recon);
+            } else if (recon.use_lim == "venkat") {
+                phi.row(c1) = venkat_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
+                phi.row(c2) = venkat_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2), recon);
+            } else {
+                phi.row(c1) = vanleer_lim(Q_max.row(c1), Q_min.row(c1), Q.row(c1), Q_L.row(i), phi.row(c1), recon);
+                phi.row(c2) = vanleer_lim(Q_max.row(c2), Q_min.row(c2), Q.row(c2), Q_R.row(i), phi.row(c2), recon);
             }
         }
         // rebuild limited states
-        #pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for schedule(static)
         for (int i = 0; i < mesh.n_faces; ++i) {
             int c1 = mesh.f2c(i, 0) - 1;
             int c2 = mesh.f2c(i, 1) - 1;
