@@ -19,7 +19,7 @@
 
 using Clock = std::chrono::high_resolution_clock; // <--- testing 
 
-void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
+void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow, const Reconstruct &recon, const Flux &flux, const Time &time, Eigen::MatrixXd &Q, const Eigen::Vector4d &Q_in) {
     // Allocate containers for left and right face states, fluxes, and residual.
     Eigen::MatrixXd Q_L = Eigen::MatrixXd::Zero(mesh.n_faces, 4);
     Eigen::MatrixXd Q_R = Eigen::MatrixXd::Zero(mesh.n_faces, 4);

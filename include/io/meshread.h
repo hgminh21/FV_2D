@@ -5,16 +5,15 @@
 #include <fstream>
 #include <cstdlib>    // For exit()
 #include <string>
-#include <Eigen/Dense>
 
 #include <vector>
 #include <array>
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
 
 using namespace std;
-using namespace Eigen;
 
 // Structure to hold mesh data and computed geometric quantities.
 struct MeshData {
@@ -23,24 +22,24 @@ struct MeshData {
     int n_cells;      // Number of cells
     int n_fwalls;     // Number of wall faces
 
-    MatrixXd r_node;  // Nodal coordinates (n_nodes x 2)
-    MatrixXi f2n;     // Face-to-node connectivity (n_faces x 2)
-    MatrixXi f2c;     // Face-to-cell connectivity (n_faces x 2)
+    vector<double> r_node;  // Nodal coordinates (n_nodes x 2)
+    vector<int> f2n;     // Face-to-node connectivity (n_faces x 2)
+    vector<int> f2c;     // Face-to-cell connectivity (n_faces x 2)
 
-    MatrixXd r_f;     // Face midpoints (n_faces x 2)
-    MatrixXd r_w;     // Wall face midpoints (n_fwalls x 2)
-    MatrixXd n_f;     // Face normal vectors (n_faces x 2)
-    VectorXd A;       // Face "areas" (or lengths in 2D) (n_faces)
+    vector<double> r_f;     // Face midpoints (n_faces x 2)
+    vector<double> r_w;     // Wall face midpoints (n_fwalls x 2)
+    vector<double> n_f;     // Face normal vectors (n_faces x 2)
+    vector<double> A;       // Face "areas" (or lengths in 2D) (n_faces)
     
-    MatrixXd r_c;     // Cell centroids (n_cells x 2)
-    VectorXd V;       // Cell volumes (or areas) (n_cells)
+    vector<double> r_c;     // Cell centroids (n_cells x 2)
+    vector<double> V;       // Cell volumes (or areas) (n_cells)
 
-    VectorXd Ixx;     // Moment/inertia-like quantity (n_cells)
-    VectorXd Iyy;     // Moment/inertia-like quantity (n_cells)
-    VectorXd Ixy;     // Moment/inertia-like quantity (n_cells)
-    VectorXd delta;   // Determinant-like quantity (n_cells)
+    vector<double> Ixx;     // Moment/inertia-like quantity (n_cells)
+    vector<double> Iyy;     // Moment/inertia-like quantity (n_cells)
+    vector<double> Ixy;     // Moment/inertia-like quantity (n_cells)
+    vector<double> delta;   // Determinant-like quantity (n_cells)
 
-    MatrixXi c2n_tri; // Triangulated cell-to-node connectivity
+    vector<int> c2n_tri; // Triangulated cell-to-node connectivity
 
 };
 
@@ -69,90 +68,98 @@ MeshData readMesh(const string &filename) {
     cout << "  Number of cells: " << mesh.n_cells << endl; 
 
     // Resize containers appropriately.
-    mesh.r_node.resize(mesh.n_nodes, 2);
-    mesh.f2n.resize(mesh.n_faces, 2);
-    mesh.f2c.resize(mesh.n_faces, 2);
+    mesh.r_node.resize(mesh.n_nodes * 2);
+    mesh.f2n.resize(mesh.n_faces * 2);
+    mesh.f2c.resize(mesh.n_faces * 2);
 
     // Read nodal coordinates.
     for (int i = 0; i < mesh.n_nodes; ++i) {
-        in >> mesh.r_node(i, 0) >> mesh.r_node(i, 1);
+        in >> mesh.r_node[2*i] >> mesh.r_node[2*i+1];
     }
     
     // Read face-to-node connectivity.
     for (int i = 0; i < mesh.n_faces; ++i) {
         int node1, node2;
         in >> node1 >> node2;
-        mesh.f2n(i, 0) = node1;
-        mesh.f2n(i, 1) = node2;
+        mesh.f2n[2*i] = node1;
+        mesh.f2n[2*i+1] = node2;
     }
     
     // Read face-to-cell connectivity.
     for (int i = 0; i < mesh.n_faces; ++i) {
         int cell1, cell2;
         in >> cell1 >> cell2;
-        mesh.f2c(i, 0) = cell1;
-        mesh.f2c(i, 1) = cell2;
+        mesh.f2c[2*i] = cell1;
+        mesh.f2c[2*i+1] = cell2;
     }
     
     in.close();
     
     // Allocate geometric data containers.
-    mesh.r_f = MatrixXd::Zero(mesh.n_faces, 2);
-    mesh.n_f = MatrixXd::Zero(mesh.n_faces, 2);
-    mesh.A   = VectorXd::Zero(mesh.n_faces);
+    mesh.r_f.resize(mesh.n_faces * 2, 0.0);
+    mesh.n_f.resize(mesh.n_faces * 2, 0.0);
+    mesh.A.resize(mesh.n_faces);
     
-    mesh.r_c = MatrixXd::Zero(mesh.n_cells, 2);
-    mesh.V   = VectorXd::Zero(mesh.n_cells);
+    mesh.r_c.resize(mesh.n_cells * 2, 0.0);
+    mesh.V.resize(mesh.n_cells, 0.0);
     
     // Auxiliary vectors to accumulate moments for centroid calculation.
-    VectorXd xc_n = VectorXd::Zero(mesh.n_cells);
-    VectorXd yc_n = VectorXd::Zero(mesh.n_cells);
-    
+    vector<double> xc_n(mesh.n_cells, 0.0);
+    vector<double> yc_n(mesh.n_cells, 0.0);
+    vector<double> r1(2, 0.0), r2(2, 0.0); // Temporary storage for nodal coordinates
     mesh.n_fwalls = 0;
-    mesh.r_w.resize(mesh.n_fwalls, 2);
+    mesh.r_w.resize(mesh.n_fwalls * 2);
     
     // Compute face midpoints, normals, face "areas", and contributions to cell volumes.
     for (int i = 0; i < mesh.n_faces; ++i) {
         // Adjust indices from one-indexed to zero-indexed.
-        int c1 = mesh.f2c(i, 0) - 1;
-        int c2 = mesh.f2c(i, 1) - 1;
-        int n1 = mesh.f2n(i, 0) - 1;
-        int n2 = mesh.f2n(i, 1) - 1;
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
+        int n1 = mesh.f2n[2*i] - 1;
+        int n2 = mesh.f2n[2*i+1] - 1;
         
         // Get nodal coordinates.
-        Vector2d r1 = mesh.r_node.row(n1);
-        Vector2d r2 = mesh.r_node.row(n2);
+        r1[0] = mesh.r_node[2*n1];
+        r1[1] = mesh.r_node[2*n1+1];
+        r2[0] = mesh.r_node[2*n2];
+        r2[1] = mesh.r_node[2*n2+1];
         
         // Compute the face midpoint.
-        mesh.r_f(i, 0) = 0.5 * (r1(0) + r2(0));
-        mesh.r_f(i, 1) = 0.5 * (r1(1) + r2(1));
+        mesh.r_f[2*i] = 0.5 * (r1[0] + r2[0]);
+        mesh.r_f[2*i+1] = 0.5 * (r1[1] + r2[1]);
         
         // Compute an unnormalized normal by rotating the edge (r2 - r1) 90° clockwise.
-        mesh.n_f(i, 0) = r2(1) - r1(1);
-        mesh.n_f(i, 1) = r1(0) - r2(0);
+        mesh.n_f[2*i] = r2[1] - r1[1];
+        mesh.n_f[2*i+1] = r1[0] - r2[0];
         
         // Compute face "area" (or length in 2D) and normalize the normal.
-        mesh.A(i) = mesh.n_f.row(i).norm();
-        mesh.n_f.row(i) /= mesh.A(i);
+        if (mesh.A[i] < 1e-12) {
+            cerr << "Warning: near-zero face area at face " << i << endl;
+            mesh.A[i] = 1e-12; // or skip this face
+        }
+        mesh.A[i] = sqrt(mesh.n_f[2*i] * mesh.n_f[2*i] + mesh.n_f[2*i+1] * mesh.n_f[2*i+1]);
+        mesh.n_f[2*i] /= mesh.A[i];
+        mesh.n_f[2*i+1] /= mesh.A[i];
         
         // Compute contributions to cell volume and centroid moments.
-        double factor = 0.5 * (mesh.r_f(i, 0) * mesh.n_f(i, 0) + mesh.r_f(i, 1) * mesh.n_f(i, 1)) * mesh.A(i);
-        double tempx  = (mesh.r_f(i, 0) * mesh.n_f(i, 0) + mesh.r_f(i, 1) * mesh.n_f(i, 1)) * mesh.r_f(i, 0) * mesh.A(i);
-        double tempy  = (mesh.r_f(i, 0) * mesh.n_f(i, 0) + mesh.r_f(i, 1) * mesh.n_f(i, 1)) * mesh.r_f(i, 1) * mesh.A(i);
+        double factor = 0.5 * (mesh.r_f[2*i] * mesh.n_f[2*i] + mesh.r_f[2*i+1] * mesh.n_f[2*i+1]) * mesh.A[i];
+        double tempx  = (mesh.r_f[2*i] * mesh.n_f[2*i] + mesh.r_f[2*i+1] * mesh.n_f[2*i+1]) * mesh.r_f[2*i] * mesh.A[i];
+        double tempy  = (mesh.r_f[2*i] * mesh.n_f[2*i] + mesh.r_f[2*i+1] * mesh.n_f[2*i+1]) * mesh.r_f[2*i+1] * mesh.A[i];
         
-        mesh.V(c1)   += factor;
-        xc_n(c1)     += tempx;
-        yc_n(c1)     += tempy;
+        mesh.V[c1]   += factor;
+        xc_n[c1]     += tempx;
+        yc_n[c1]     += tempy;
         
         // If the second cell index is valid, update its contributions.
         if (c2 >= 0) {
-            mesh.V(c2)   -= factor;
-            xc_n(c2)     -= tempx;
-            yc_n(c2)     -= tempy;
+            mesh.V[c2]   -= factor;
+            xc_n[c2]     -= tempx;
+            yc_n[c2]     -= tempy;
         }
         if (c2 == -1) {
-            mesh.r_w.conservativeResize(mesh.n_fwalls + 1, Eigen::NoChange);
-            mesh.r_w.row(mesh.n_fwalls) = mesh.r_f.row(i); 
+            mesh.r_w.resize(2*mesh.n_fwalls + 2);
+            mesh.r_w[2*mesh.n_fwalls] = mesh.r_f[2*i]; 
+            mesh.r_w[2*mesh.n_fwalls+1] = mesh.r_f[2*i+1];
             mesh.n_fwalls += 1;
         }
     }
@@ -161,58 +168,61 @@ MeshData readMesh(const string &filename) {
 
     // Compute cell centroids from accumulated moments.
     for (int i = 0; i < mesh.n_cells; ++i) {
-        if (mesh.V(i) == 0) {
+        if (mesh.V[i] == 0) {
             cerr << "Warning: Zero cell volume encountered for cell " << i << endl;
             continue;
         }
-        mesh.r_c(i, 0) = (1.0 / 3.0) * (xc_n(i) / mesh.V(i));
-        mesh.r_c(i, 1) = (1.0 / 3.0) * (yc_n(i) / mesh.V(i));
+        mesh.r_c[2*i] = (1.0 / 3.0) * (xc_n[i] / mesh.V[i]);
+        mesh.r_c[2*i+1] = (1.0 / 3.0) * (yc_n[i] / mesh.V[i]);
     }
 
     // Compute moments for use in reconstruction.
-    VectorXd Ixx_temp = VectorXd::Zero(mesh.n_cells); 
-    VectorXd Iyy_temp = VectorXd::Zero(mesh.n_cells);
-    VectorXd Ixy_temp = VectorXd::Zero(mesh.n_cells);
+    vector<double> Ixx_temp(mesh.n_cells, 0.0); 
+    vector<double> Iyy_temp(mesh.n_cells, 0.0);
+    vector<double> Ixy_temp(mesh.n_cells, 0.0);
 
     for (int i = 0; i < mesh.n_faces; ++i) {
-        int c1 = mesh.f2c(i, 0) - 1;
-        int c2 = mesh.f2c(i, 1) - 1;
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
         if (c2 >= 0) {
-            double tempIxx = (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)) * (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)); 
-            double tempIyy = (mesh.r_c(c1, 1) - mesh.r_c(c2, 1)) * (mesh.r_c(c1, 1) - mesh.r_c(c2, 1));
-            double tempIxy = (mesh.r_c(c1, 0) - mesh.r_c(c2, 0)) * (mesh.r_c(c1, 1) - mesh.r_c(c2, 1));
-            Ixx_temp(c1) += tempIxx;
-            Iyy_temp(c1) += tempIyy;
-            Ixy_temp(c1) += tempIxy;
-            Ixx_temp(c2) += tempIxx;
-            Iyy_temp(c2) += tempIyy;
-            Ixy_temp(c2) += tempIxy;
+            double tempIxx = (mesh.r_c[2*c1] - mesh.r_c[2*c2]) * (mesh.r_c[2*c1] - mesh.r_c[2*c2]); 
+            double tempIyy = (mesh.r_c[2*c1+1] - mesh.r_c[2*c2+1]) * (mesh.r_c[2*c1+1] - mesh.r_c[2*c2+1]);
+            double tempIxy = (mesh.r_c[2*c1] - mesh.r_c[2*c2]) * (mesh.r_c[2*c1+1] - mesh.r_c[2*c2+1]);
+            Ixx_temp[c1] += tempIxx;
+            Iyy_temp[c1] += tempIyy;
+            Ixy_temp[c1] += tempIxy;
+            Ixx_temp[c2] += tempIxx;
+            Iyy_temp[c2] += tempIyy;
+            Ixy_temp[c2] += tempIxy;
         }
         else {
             // double tempIxx = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 0) - mesh.r_f(i, 0));
             // double tempIyy = 4 * (mesh.r_c(c1, 1) - mesh.r_f(i, 1)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
             // double tempIxy = 4 * (mesh.r_c(c1, 0) - mesh.r_f(i, 0)) * (mesh.r_c(c1, 1) - mesh.r_f(i, 1));
-            double dxface = mesh.r_c(c1, 0) - mesh.r_f(i, 0);
-            double dyface = mesh.r_c(c1, 1) - mesh.r_f(i, 1);
-            double tempIxx = 4.0 * (dxface * mesh.n_f(i, 0)) * (dxface * mesh.n_f(i, 0));
-            double tempIyy = 4.0 * (dyface * mesh.n_f(i, 1)) * (dyface * mesh.n_f(i, 1));
-            double tempIxy = 4.0 * (dxface * mesh.n_f(i, 0)) * (dyface * mesh.n_f(i, 1));
-            Ixx_temp(c1) += tempIxx;
-            Iyy_temp(c1) += tempIyy;
-            Ixy_temp(c1) += tempIxy;
+            double dxface = mesh.r_c[2*c1] - mesh.r_f[2*i];
+            double dyface = mesh.r_c[2*c1+1] - mesh.r_f[2*i+1];
+            double tempIxx = 4.0 * (dxface * mesh.n_f[2*i]) * (dxface * mesh.n_f[2*i]);
+            double tempIyy = 4.0 * (dyface * mesh.n_f[2*i+1]) * (dyface * mesh.n_f[2*i+1]);
+            double tempIxy = 4.0 * (dxface * mesh.n_f[2*i]) * (dyface * mesh.n_f[2*i+1]);
+            Ixx_temp[c1] += tempIxx;
+            Iyy_temp[c1] += tempIyy;
+            Ixy_temp[c1] += tempIxy;
         }
     }
-    
-    mesh.delta = Ixx_temp.array() * Iyy_temp.array() - Ixy_temp.array().square();
-    // Check for very small delta values before division
+
+    mesh.delta.resize(mesh.n_cells);
+    mesh.Ixx.resize(mesh.n_cells);
+    mesh.Iyy.resize(mesh.n_cells);
+    mesh.Ixy.resize(mesh.n_cells);
     for (int i = 0; i < mesh.n_cells; ++i) {
-        if (abs(mesh.delta(i)) < 1e-12) {
+        mesh.delta[i] = Ixx_temp[i] * Iyy_temp[i] - Ixy_temp[i] * Ixy_temp[i];
+        if (std::abs(mesh.delta[i]) < 1e-12) {
             cerr << "Warning: delta is very small for cell " << i << endl;
         }
+        mesh.Ixx[i] = Ixx_temp[i] / mesh.delta[i];
+        mesh.Iyy[i] = Iyy_temp[i] / mesh.delta[i];
+        mesh.Ixy[i] = Ixy_temp[i] / mesh.delta[i];
     }
-    mesh.Ixx = Ixx_temp.array() / mesh.delta.array();
-    mesh.Iyy = Iyy_temp.array() / mesh.delta.array();
-    mesh.Ixy = Ixy_temp.array() / mesh.delta.array();
 
     // ---- Triangulate cells and fill mesh.c2n_tri ----
     cout << "Triangulating mesh file ..." << endl;
@@ -223,7 +233,7 @@ MeshData readMesh(const string &filename) {
     // Step 1: Map each cell to its faces
     for (int i = 0; i < mesh.n_faces; ++i) {
         for (int s = 0; s < 2; ++s) {
-            int c = mesh.f2c(i, s) - 1;
+            int c = mesh.f2c[2*i + s] - 1;
             if (c >= 0) cell_to_faces[c].push_back(i);
         }
     }
@@ -243,9 +253,9 @@ MeshData readMesh(const string &filename) {
 
         // Build "next node" mapping from face edges
         for (int f : faces) {
-            int n0 = mesh.f2n(f, 0);
-            int n1 = mesh.f2n(f, 1);
-            if (mesh.f2c(f, 0) - 1 == c)
+            int n0 = mesh.f2n[2*f];
+            int n1 = mesh.f2n[2*f+1];
+            if (mesh.f2c[2*f] - 1 == c)
                 next_node[n0] = n1;
             else
                 next_node[n1] = n0;
@@ -268,15 +278,27 @@ MeshData readMesh(const string &filename) {
 
     // Step 3: Transfer to Eigen::MatrixXi
     int n_tri = temp_triangles.size();
-    mesh.c2n_tri.resize(n_tri, 3);
+    mesh.c2n_tri.resize(n_tri*3);
     for (int i = 0; i < n_tri; ++i) {
-        mesh.c2n_tri(i, 0) = temp_triangles[i][0];
-        mesh.c2n_tri(i, 1) = temp_triangles[i][1];
-        mesh.c2n_tri(i, 2) = temp_triangles[i][2];
+        mesh.c2n_tri[3*i] = temp_triangles[i][0];
+        mesh.c2n_tri[3*i+1] = temp_triangles[i][1];
+        mesh.c2n_tri[3*i+2] = temp_triangles[i][2];
     }
     cout << "Completed triangulation." << endl;
 
     return mesh;
+}
+
+// Helper to print 2D matrix stored in flat vector
+template<typename T>
+void writeMatrix(std::ostream &out, const std::vector<T> &vec, int n_rows, int n_cols) {
+    for (int i = 0; i < n_rows; ++i) {
+        for (int j = 0; j < n_cols; ++j) {
+            out << vec[i * n_cols + j];
+            if (j < n_cols - 1) out << " ";
+        }
+        out << "\n";
+    }
 }
 
 // Function to output (write) the mesh data to a text file.
@@ -286,27 +308,66 @@ void outputMeshData(const MeshData &mesh, const string &filename) {
         cerr << "Error opening file " << filename << " for output." << endl;
         return;
     }
-    
+
     out << "# Mesh Data Output\n";
     out << "# n_nodes: " << mesh.n_nodes << "\n";
     out << "# n_faces: " << mesh.n_faces << "\n";
     out << "# n_cells: " << mesh.n_cells << "\n\n";
-    
-    out << "# Nodal Coordinates (r_node):\n" << mesh.r_node << "\n\n";
-    out << "# Face-to-Node Connectivity (f2n):\n" << mesh.f2n << "\n\n";
-    out << "# Face-to-Cell Connectivity (f2c):\n" << mesh.f2c << "\n\n";
-    out << "# Face Midpoints (r_f):\n" << mesh.r_f << "\n\n";
-    out << "# Face Normals (n_f):\n" << mesh.n_f << "\n\n";
-    out << "# Face Areas (A):\n" << mesh.A << "\n\n";
-    out << "# Cell Volumes (V):\n" << mesh.V << "\n\n";
-    out << "# Cell Centroids (r_c):\n" << mesh.r_c << "\n\n";
-    out << "# Ixx:\n" << mesh.Ixx << "\n\n";
-    out << "# Iyy:\n" << mesh.Iyy << "\n\n";
-    out << "# Ixy:\n" << mesh.Ixy << "\n\n";
-    out << "# delta:\n" << mesh.delta << "\n\n";
-    out << "# Triangulated Cell-to-Node Connectivity (c2n_tri): \n" << mesh.c2n_tri << "\n\n";
-    
+
+    out << "# Nodal Coordinates (r_node):\n";
+    writeMatrix(out, mesh.r_node, mesh.n_nodes, 2);
+    out << "\n";
+
+    out << "# Face-to-Node Connectivity (f2n):\n";
+    writeMatrix(out, mesh.f2n, mesh.n_faces, 2);
+    out << "\n";
+
+    out << "# Face-to-Cell Connectivity (f2c):\n";
+    writeMatrix(out, mesh.f2c, mesh.n_faces, 2);
+    out << "\n";
+
+    out << "# Face Midpoints (r_f):\n";
+    writeMatrix(out, mesh.r_f, mesh.n_faces, 2);
+    out << "\n";
+
+    out << "# Face Normals (n_f):\n";
+    writeMatrix(out, mesh.n_f, mesh.n_faces, 2);
+    out << "\n";
+
+    out << "# Face Areas (A):\n";
+    writeMatrix(out, mesh.A, mesh.n_faces, 1);
+    out << "\n";
+
+    out << "# Cell Volumes (V):\n";
+    writeMatrix(out, mesh.V, mesh.n_cells, 1);
+    out << "\n";
+
+    out << "# Cell Centroids (r_c):\n";
+    writeMatrix(out, mesh.r_c, mesh.n_cells, 2);
+    out << "\n";
+
+    out << "# Ixx:\n";
+    writeMatrix(out, mesh.Ixx, mesh.n_cells, 1);
+    out << "\n";
+
+    out << "# Iyy:\n";
+    writeMatrix(out, mesh.Iyy, mesh.n_cells, 1);
+    out << "\n";
+
+    out << "# Ixy:\n";
+    writeMatrix(out, mesh.Ixy, mesh.n_cells, 1);
+    out << "\n";
+
+    out << "# delta:\n";
+    writeMatrix(out, mesh.delta, mesh.n_cells, 1);
+    out << "\n";
+
+    out << "# Triangulated Cell-to-Node Connectivity (c2n_tri):\n";
+    writeMatrix(out, mesh.c2n_tri, mesh.c2n_tri.size() / 3, 3);
+    out << "\n";
+
     out.close();
 }
+
 
 #endif // MESHREAD_H

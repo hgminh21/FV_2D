@@ -1,21 +1,19 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <vector>
 
-#include <Eigen/Dense>
 #include <cstdlib>  // For std::exit
-#include <petscsys.h>  // Include for PetscInitialize/Finalize
 #include <chrono> // For timing 
 
 #include "io/initialize.h"
 #include "io/meshread.h"
 #include "explicit/ssprk3.h"
 #include "explicit/ssprk2.h"
-#include "implicit/implicit.h"
+// #include "implicit/implicit.h"
 #include <omp.h> 
 
 using namespace std;
-using namespace Eigen;
 using Clock = std::chrono::high_resolution_clock;
 
 int main(int argc, char* argv[]) {
@@ -100,8 +98,9 @@ int main(int argc, char* argv[]) {
     cout << setw(remaining_space) << " " << " ║" << endl;
     cout << "╚════════════════════════════════════════════════════════════════════════════════╝" << endl;
     std::cout << std::endl;
-    Vector4d Q_init;
-    MatrixXd Q;
+
+    vector<double> Q_init;
+    vector<double> Q;
     MeshData mesh;
     Flow flow;
     Solver solver;
@@ -113,16 +112,6 @@ int main(int argc, char* argv[]) {
     cout << "==================================Initializing====================================" << endl;
     auto t0 = Clock::now();   // Start
     initialize(infile, mesh, flow, solver, recon, flux, time, Q_init, Q);
-    // Check if PETSc has been initialized; if not, initialize it
-    PetscBool isMPIInitialized;
-    PetscInitialized(&isMPIInitialized);
-    if (!isMPIInitialized) {
-        PetscErrorCode ierr = PetscInitialize(&argc, &argv, nullptr, "Usage: ...");
-        if (ierr) {
-            cerr << "PETSc initialization failed!" << endl;
-            return 1;  // Exit with error
-        }
-    }
 
     cout << "Finished initializing." << endl;
     auto t1 = Clock::now();   // After initialization
@@ -133,7 +122,8 @@ int main(int argc, char* argv[]) {
     // Run time integration
     if (time.method == "implicit") {
         // Perform tasks for the implicit method
-        implicit_scheme(mesh, solver, flow, recon, flux, time, Q, Q_init);
+        // implicit_scheme(mesh, solver, flow, recon, flux, time, Q, Q_init);
+        std::cerr << "Implicit method is not yet implemented." << std::endl;
     } else {
         // Handle other methods or default case
         if (time.rk_steps == 2) {
@@ -148,9 +138,6 @@ int main(int argc, char* argv[]) {
     auto t2 = Clock::now();   // After initialization
     cout << "Time elapsed simulation = " << chrono::duration<double>(t2 - t1).count() << " s\n";
     cout << "==============================Simulation Successful===============================" << endl;
-
-    // Finalize PETSc
-    PetscFinalize();
 
     return 0;
 }
