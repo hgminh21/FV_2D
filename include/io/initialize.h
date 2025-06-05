@@ -121,7 +121,7 @@ bool parse_input_file(const std::string& filename, Flow &flow, Solver &solver, R
 }
 
 // Main initialization function
-void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Reconstruct &recon, Flux &flux, Time &time, vector<double> &Q_init, vector<double> &Q1, vector<double> &Q2, vector<double> &Q3, vector<double> &Q4)
+void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solver &solver, Reconstruct &recon, Flux &flux, Time &time, vector<double> &Q_init, vector<double> &Q)
 {
     std::string mesh_filename;
 
@@ -230,15 +230,12 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
     double E = flow.p / (flow.gamma - 1.0) + 0.5 * flow.rho * (flow.u * flow.u + flow.v * flow.v);
     Q_init << flow.rho, flow.rho * flow.u, flow.rho * flow.v, E;
 
-    Q1.resize(mesh.n_cells, 0.0);
-    Q2.resize(mesh.n_cells, 0.0);
-    Q3.resize(mesh.n_cells, 0.0);
-    Q4.resize(mesh.n_cells, 0.0);
+    Q.resize(mesh.n_cells*4, 0.0);
     for (int i = 0; i < mesh.n_cells; ++i) {
-        Q1[i] = Q_init[0]; // rho
-        Q2[i] = Q_init[1]; // rho*u
-        Q3[i] = Q_init[2]; // rho*v
-        Q4[i] = Q_init[3]; // E
+        Q[4*i] = Q_init[0]; // rho
+        Q[4*i+1] = Q_init[1]; // rho*u
+        Q[4*i+2] = Q_init[2]; // rho*v
+        Q[4*i+3] = Q_init[3]; // E
     }
 }
 
