@@ -1,106 +1,105 @@
 #ifndef VISFLUXCOMP_H
 #define VISFLUXCOMP_H
 
-#include <Eigen/Dense>
 #include <cmath>
 #include <algorithm>
 #include <iostream> 
 
-#include <omp.h>
 #include "io/meshread.h"
 #include "io/initialize.h"
 #include "flux/fluxcomp.h"
+#include "explicit/varini.h"
 
-using namespace Eigen;
 using std::max;
 using std::abs;
 
 void compute_fluxes_vis(const MeshData &mesh,
-                        const MatrixXd &Q_L,
-                        const MatrixXd &Q_R,
-                        const MatrixXd &dQx,
-                        const MatrixXd &dQy,
                         const Flow &flow,
                         const Flux &flux,
-                        MatrixXd &F,
-                        VectorXd &s_max_all,
-                        MatrixXd &F_viscous,
-                        MatrixXd &Q_f,
-                        MatrixXd &dQ_fx,
-                        MatrixXd &dQ_fy,
-                        VectorXd &dVdn)
+                        const reconVars &rv,
+                        const reconScraps &rs,
+                        fluxVars &fv,
+                        fluxScraps &fs,
+                        ioVars &iv)
 {
     // Inviscid part
-    compute_fluxes(mesh, Q_L, Q_R, flow, flux, F, s_max_all);
+    compute_fluxes(mesh, flow, flux, rs, fv);
 
-    F_viscous.setZero();
-    Q_f.setZero();
-    dQ_fx.setZero();
-    dQ_fy.setZero();
+    fs.F_viscous.setZero();
+    fs.Q_f.setZero();
+    fs.dQ_fx.setZero();
+    fs.dQ_fy.setZero();
       
     int j = 0;
 
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < mesh.n_faces; ++i) {
-        int c1 = mesh.f2c(i, 0) - 1;
-        int c2 = mesh.f2c(i, 1) - 1;
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i + 1] - 1;
 
-        double nx = mesh.n_f(i, 0);
-        double ny = mesh.n_f(i, 1);
+        double nx = mesh.n_f[2*i];
+        double ny = mesh.n_f[2*i + 1];
 
         double dux, duy, dvx, dvy, dTx, dTy;
 
-        Q_f.row(i) = 0.5 * (Q_L.row(i) + Q_R.row(i));
-        double rho = Q_f(i, 0);
-        double u = Q_f(i, 1) / rho;
-        double v = Q_f(i, 2) / rho;
-        double E = Q_f(i, 3);
+        double rho = 0.5 * (rv.Q_L[4*i] + rv.Q_R[4*i]);
+        double u = 0.5 * (rv.Q_L[4*i+1] + rv.Q_R[4*i+1]) / rho;
+        double v = 0.5 * (rv.Q_L[4*i+2] + rv.Q_R[4*i+2]) / rho;
+        double E = 0.5 * (rv.Q_L[4*i+3] + rv.Q_R[4*i+3]);
         double p = (E - 0.5 * rho * (u * u + v * v)) * (flow.gamma - 1.0);
+        
+        fs.Q_f[4*i] = rho;
+        fs.Q_f[4*i+1] = rho * u;
+        fs.Q_f[4*i+2] = rho * v;
+        fs.Q_f[4*i+3] = E;
 
         if (c2 >= 0) {
-            dQ_fx.row(i) = 0.5 * (dQx.row(c1) + dQx.row(c2));
-            dQ_fy.row(i) = 0.5 * (dQy.row(c1) + dQy.row(c2));
+            if (int k < 4, ++k) {
+                fs.dQ_fx[4*i + k] = 0.5 * (rs.dQx[4*c1 + k] + rs.dQx[4*c2 + k]);
+                fs.dQ_fy[4*i + k] = 0.5 * (rs.dQy[4*c1 + k] + rs.dQy[4*c2 + k]);
+            }
 
-            double drhox = dQ_fx(i, 0);
-            double drhoy = dQ_fy(i, 0);
-            dux = (dQ_fx(i, 1) - u * drhox) / rho;
-            duy = (dQ_fy(i, 1) - u * drhoy) / rho;
-            dvx = (dQ_fx(i, 2) - v * drhox) / rho;
-            dvy = (dQ_fy(i, 2) - v * drhoy) / rho;
+            double drhox = fs.dQ_fx[4*i];
+            double drhoy = fs.dQ_fy[4*i];
+
+            dux = (fs.dQ_fx[4*i + 1] - u * drhox) / rho;
+            duy = (fs.dQ_fy[4*i + 1] - u * drhoy) / rho;
+            dvx = (fs.dQ_fx[4*i + 2] - v * drhox) / rho;
+            dvy = (fs.dQ_fy[4*i + 2] - v * drhoy) / rho;
     
-            dTx = ((dQ_fx(i, 3) - u * dQ_fx(i, 1) - v * dQ_fx(i, 2)) * (flow.gamma - 1.0) - p * drhox / rho) / (flow.R * rho);
-            dTy = ((dQ_fy(i, 3) - u * dQ_fy(i, 1) - v * dQ_fy(i, 2)) * (flow.gamma - 1.0) - p * drhoy / rho) / (flow.R * rho);
+            dTx = ((fs.dQ_fx[4*i+3] - u * fs.dQ_fx[4*i+1] - v * fs.dQ_fx[4*i+2]) * (flow.gamma - 1.0) - p * drhox / rho) / (flow.R * rho);
+            dTy = ((fs.dQ_fy[4*i+3] - u * fs.dQ_fy[4*i+1] - v * fs.dQ_fy[4*i+2]) * (flow.gamma - 1.0) - p * drhoy / rho) / (flow.R * rho);
         } else {
-            dQ_fx.row(i) = dQx.row(c1);
-            dQ_fy.row(i) = dQy.row(c1);
+            for (int k = 0; k < 4; ++k) {
+                fs.dQ_fx[4*i + k] = rs.dQx[4*c1 + k];
+                fs.dQ_fy[4*i + k] = rs.dQy[4*c1 + k];
+            }
 
-            double drhox = dQ_fx(i, 0);
-            double drhoy = dQ_fy(i, 0);
-            dux = (dQ_fx(i, 1) - u * drhox) / rho;
-            duy = (dQ_fy(i, 1) - u * drhoy) / rho;
-            dvx = (dQ_fx(i, 2) - v * drhox) / rho;
-            dvy = (dQ_fy(i, 2) - v * drhoy) / rho;
+            double drhox = fs.dQ_fx[4*i];
+            double drhoy = fs.dQ_fy[4*i];
+            dux = (fs.dQ_fx[4*i + 1] - u * drhox) / rho;
+            duy = (fs.dQ_fy[4*i + 1] - u * drhoy) / rho;
+            dvx = (fs.dQ_fx[4*i + 2] - v * drhox) / rho;
+            dvy = (fs.dQ_fy[4*i + 2] - v * drhoy) / rho;
     
-            dTx = ((dQ_fx(i, 3) - u * dQ_fx(i, 1) - v * dQ_fx(i, 2)) * (flow.gamma - 1.0) - p * drhox / rho) / (flow.R * rho);
-            dTy = ((dQ_fy(i, 3) - u * dQ_fy(i, 1) - v * dQ_fy(i, 2)) * (flow.gamma - 1.0) - p * drhoy / rho) / (flow.R * rho);
+            dTx = ((fs.dQ_fx[4*i+3] - u * fs.dQ_fx[4*i+1] - v * fs.dQ_fx[4*i+2]) * (flow.gamma - 1.0) - p * drhox / rho) / (flow.R * rho);
+            dTy = ((fs.dQ_fy[4*i+3] - u * fs.dQ_fy[4*i+1] - v * fs.dQ_fy[4*i+2]) * (flow.gamma - 1.0) - p * drhoy / rho) / (flow.R * rho);
         }
 
         // Wall boundary: Override gradients
         if (c2 == -1) {
-            double dx = mesh.r_c(c1, 0) - mesh.r_f(i, 0);
-            double dy = mesh.r_c(c1, 1) - mesh.r_f(i, 1);
+            double dx = mesh.r_c[2*c1] - mesh.r_f[2*i];
+            double dy = mesh.r_c[2*c1+1] - mesh.r_f[2*i+1];
             double mag = std::sqrt(dx * dx + dy * dy);
 
-            double uL = Q_L(i, 1) / Q_L(i, 0);
-            double vL = Q_L(i, 2) / Q_L(i, 0);
+            double uL = rv.Q_L[4*i + 1] / rv.Q_L[4*i];
+            double vL = rv.Q_L[4*i + 2] / rv.Q_L[4*i];
 
             double dun = -uL / mag;
             double dvn = -vL / mag;
             double VL = uL * nx + vL * ny;
 
-            #pragma omp critical
             {
-                dVdn(j++) = -VL / mag;
+                iv.dVdn[j++] = -VL / mag;
             }
 
             dux = dun * nx;
@@ -119,16 +118,20 @@ void compute_fluxes_vis(const MeshData &mesh,
         double Txy = flow.mu * (duy + dvx);
 
         // Viscous flux contribution
-        F_viscous(i, 0) = 0.0;
-        F_viscous(i, 1) = Txx * nx + Txy * ny;
-        F_viscous(i, 2) = Txy * nx + Tyy * ny;
-        F_viscous(i, 3) = (u * (Txx * nx + Txy * ny) +
-                           v * (Txy * nx + Tyy * ny) +
-                           flow.k * (dTx * nx + dTy * ny));
+        fs.F_viscous[4*i] = 0.0;
+        fs.F_viscous[4*i + 1] = Txx * nx + Txy * ny;
+        fs.F_viscous[4*i + 2] = Txy * nx + Tyy * ny;
+        fs.F_viscous[4*i + 3] = (u * (Txx * nx + Txy * ny) +
+                                v * (Txy * nx + Tyy * ny) +
+                                flow.k * (dTx * nx + dTy * ny));
     }
 
     // Final flux = inviscid - viscous (note: some literature writes it as inviscid + viscous)
-    F -= F_viscous;
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        for (int k = 0; k < 4; ++k) {
+            fv.F[4*i + k] -= fs.F_viscous[4*i + k];
+        }
+    }
 }
 
 #endif  // VISFLUXCOMP_H

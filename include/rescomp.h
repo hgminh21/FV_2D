@@ -1,52 +1,45 @@
 #ifndef RESCOMP_H
 #define RESCOMP_H
 
-#include <Eigen/Dense>
-#include <omp.h>
-
 #include "io/meshread.h"
 #include "io/initialize.h"
-
-using namespace Eigen;
+#include "explicit/varini.h"
 
 void compute_residual(const MeshData &mesh,
-                    const MatrixXd &F,
-                    const VectorXd &s_max_all,
                     const Solver &solver,
                     const Time &time,
-                    MatrixXd &Res,
-                    VectorXd &dt_local)
+                    fluxVars &fv,
+                    resVars &resv)
 {
-    Res.setZero();
-    dt_local.setZero();
+    std::fill(resv.Res.begin(), resv.Res.end(), 0.0);
+    std::fill(resv.dt_local.begin(), resv.dt_local.end(), 0.0);
 
-    #pragma omp parallel for
     for (int i = 0; i < mesh.n_faces; ++i) {
-        int c1 = mesh.f2c(i, 0) - 1;
-        int c2 = mesh.f2c(i, 1) - 1;
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i + 1] - 1;
 
         for (int j = 0; j < 4; ++j) {
-            #pragma omp atomic
-            Res(c1, j) -= (F(i, j) * mesh.A(i)) / mesh.V(c1);
+            resv.Res[4*c1 + j] -= (fv.F[4*i + j] * mesh.A[i]) / mesh.V[c1];
         }
         if (time.use_cfl == 1) {
-            #pragma omp atomic
-            dt_local(c1) += s_max_all(i) * mesh.A(i) / mesh.V(c1);
+            resv.dt_local[c1] += fv.s_max_all[i] * mesh.A[i] / mesh.V[c1];
         }
 
         if (c2 >= 0) {
             for (int j = 0; j < 4; ++j) {
-                #pragma omp atomic
-                Res(c2, j) += (F(i, j) * mesh.A(i)) / mesh.V(c2);
+                resv.Res[4*c2 + j] += (fv.F[4*i + j] * mesh.A[i]) / mesh.V[c2];
             }
             if (time.use_cfl == 1) {
-                #pragma omp atomic
-                dt_local(c2) += s_max_all(i) * mesh.A(i) / mesh.V(c2);
+                resv.dt_local[c2] += fv.s_max_all[i] * mesh.A[i] / mesh.V[c2];
             }
         }
     }
-    
-    if (time.use_cfl == 1) {dt_local = time.CFL * dt_local.cwiseInverse();}
+
+    if (time.use_cfl == 1) {
+        for (int i = 0; i < mesh.n_cells; ++i) {
+            resv.dt_local[i] = time.CFL / resv.dt_local[i];
+        }
+    }
 }
 
 #endif  // RESCOMP_H

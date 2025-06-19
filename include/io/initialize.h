@@ -148,6 +148,7 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
 
     // Load mesh
     mesh = readMesh(mesh_filename);
+    // outputMeshData(mesh, "mesh_output.txt"); // Optional: output mesh data to a file
     cout << "Finished reading mesh from " << mesh_filename << endl;
     
     if (flow.type == 1) {std::cout << "Equation : Euler" << std::endl;}
@@ -228,7 +229,12 @@ void initialize(const std::string &input_file, MeshData &mesh, Flow &flow, Solve
 
     // Initial conserved variables
     double E = flow.p / (flow.gamma - 1.0) + 0.5 * flow.rho * (flow.u * flow.u + flow.v * flow.v);
-    Q_init << flow.rho, flow.rho * flow.u, flow.rho * flow.v, E;
+    Q_init.assign({
+        flow.rho,
+        flow.rho * flow.u,
+        flow.rho * flow.v,
+        E
+    });
 
     Q.resize(mesh.n_cells*4, 0.0);
     for (int i = 0; i < mesh.n_cells; ++i) {

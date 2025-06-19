@@ -28,6 +28,15 @@ struct resVars {
     std::vector<double> dt_local;
 };
 
+struct ioVars {
+    std::vector<double> Q_out;
+    std::vector<double> Q1;
+    std::vector<double> dVdn;
+    std::vector<double> CP;
+    std::vector<double> TauW;
+    std::vector<double> Cf;
+};
+
 reconVars init_reconVars(const MeshData& mesh) {
     auto zm = [](int r, int c) { return std::vector<double>(r*c, 0.0); };
     auto zv = [](int s) { return std::vector<double>(s, 0.0); };
@@ -87,13 +96,18 @@ resVars init_resVars(const MeshData& mesh) {
     return v;
 }
 
-//     v.Q_out      = zm(mesh.n_nodes, 4);
-//     v.Q1         = zm(mesh.n_cells, 4);
-//     v.dVdn       = zv(mesh.n_fwalls);
-//     v.CP         = zv(mesh.n_fwalls);
-//     v.TauW       = zv(mesh.n_fwalls);
-//     v.Cf         = zv(mesh.n_fwalls);
-//     return v;
-// }
+ioVars init_ioVars(const MeshData& mesh) {
+    auto zm = [](int r, int c) { return std::vector<double>(r*c, 0.0); };
+    auto zv = [](int s) { return std::vector<double>(s, 0.0); }; 
+
+    ioVars v;
+    v.Q_out      = zm(mesh.n_nodes, 4);
+    v.Q1         = zm(mesh.n_cells, 4);
+    v.dVdn       = zv(mesh.n_fwalls);
+    v.CP         = zv(mesh.n_fwalls);
+    v.TauW       = zv(mesh.n_fwalls);
+    v.Cf         = zv(mesh.n_fwalls);
+    return v;
+}
 
 #endif // VARINI_H

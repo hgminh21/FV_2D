@@ -133,11 +133,11 @@ MeshData readMesh(const string &filename) {
         mesh.n_f[2*i+1] = r1[0] - r2[0];
         
         // Compute face "area" (or length in 2D) and normalize the normal.
+        mesh.A[i] = sqrt(mesh.n_f[2*i] * mesh.n_f[2*i] + mesh.n_f[2*i+1] * mesh.n_f[2*i+1]);
         if (mesh.A[i] < 1e-12) {
             cerr << "Warning: near-zero face area at face " << i << endl;
             mesh.A[i] = 1e-12; // or skip this face
         }
-        mesh.A[i] = sqrt(mesh.n_f[2*i] * mesh.n_f[2*i] + mesh.n_f[2*i+1] * mesh.n_f[2*i+1]);
         mesh.n_f[2*i] /= mesh.A[i];
         mesh.n_f[2*i+1] /= mesh.A[i];
         
