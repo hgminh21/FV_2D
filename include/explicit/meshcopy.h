@@ -168,7 +168,7 @@ struct DeviceIniVars {
     double* d_Q = nullptr;
 
     void allocate(device& d, const MeshData& mesh) {
-        d.Malloc((void**)&d_Q_init, mesh.n_cells * 4 * sizeof(double));
+        d.Malloc((void**)&d_Q_init, 4 * sizeof(double));
         d.Malloc((void**)&d_Q, mesh.n_cells * 4 * sizeof(double));
     }
 

@@ -13,8 +13,13 @@ public:
     const DeviceReconVars* d_rv;
     DeviceFluxVars d_fv;
     std::string method;
+    const int* n_faces;
 
     deviceFunction void operator()(const unsigned int i) const {
+        if (i >= *n_faces) {
+            // std::cout << "this bih out of bound" << std::endl;
+            return;
+        }
         double nx = dMesh.d_n_f[2*i];
         double ny = dMesh.d_n_f[2*i+1];
         double gamma = *(dflow->d_gamma);

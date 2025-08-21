@@ -13,45 +13,77 @@ public:
     const double* d_Q_in;
     const DeviceFlow* d_flow;
     DeviceReconScraps d_rs;
+    const int* n_cells;
 
-    deviceFunction void operator()(const unsigned int i) const {
-        int n_neighbors = dMesh.d_neighbor_count[i];
-        int offset = dMesh.d_neighbor_offset[i];
-
-        double x_c = dMesh.d_r_c[2*i];
-        double y_c = dMesh.d_r_c[2*i+1];
+    deviceFunction void operator()(const unsigned int c) const {
+        if (c >= *n_cells) {
+            // std::cout << "this bih out of bound" << std::endl;
+            return; // out of bounds
+        }
+        
+        int start = dMesh.d_c2f_offset[c];
+        int end   = dMesh.d_c2f_offset[c+1];
 
         double gradX[4] = {0.0, 0.0, 0.0, 0.0};
         double gradY[4] = {0.0, 0.0, 0.0, 0.0};
-
-        // Loop over neighbors
-        for(int n=0; n<n_neighbors; ++n){
-            int nb = dMesh.d_neighbor_flat[offset + n];
-            double x_nb, y_nb;
-            double Q_nb[4];
-            if(nb >= 0){  // interior neighbor
-                x_nb = dMesh.d_r_c[2*nb];
-                y_nb = dMesh.d_r_c[2*nb+1];
-                for(int j=0;j<4;j++) Q_nb[j] = d_Q[4*nb + j];
-            } else {      // boundary condition
-                int bc_type = nb;
-                x_nb = dMesh.d_r_f[-(bc_type+1)*2];  // approximate BC point (face)
-                y_nb = dMesh.d_r_f[-(bc_type+1)*2+1];
-                for(int j=0;j<4;j++) Q_nb[j] = d_Q_in[j];
+        for (int f = start; f < end; ++ f) {
+            int i = dMesh.d_c2f_flat[f];
+            int c1 = dMesh.d_f2c[2*i]-1;
+            int c2 = dMesh.d_f2c[2*i+1]-1;
+            
+            double x1 = dMesh.d_r_c[2*c1], y1 = dMesh.d_r_c[2*c1+1];
+            double xf = dMesh.d_r_f[2*i], yf = dMesh.d_r_f[2*i+1];
+            double nx = dMesh.d_n_f[2*i], ny = dMesh.d_n_f[2*i+1];
+            double Q1[4], Q2[4];
+            double dx, dy;
+            for(int j=0;j<4;j++) Q1[j] = d_Q[4*c1 + j];
+            if (c2 >= 0) {
+                for(int j=0;j<4;j++) Q2[j] = d_Q[4*c2 + j];
             }
-
-            double dx = x_nb - x_c;
-            double dy = y_nb - y_c;
+            double dQ[4] = {0.0, 0.0, 0.0, 0.0};
+            if (c2 >= 0) {
+                dx = dMesh.d_r_c[2*c2] - x1;
+                dy = dMesh.d_r_c[2*c2+1] - y1;
+                // compute gradient
+                for (int j = 0; j < 4; ++j) {
+                    dQ[j] = Q2[j] - Q1[j];
+                }
+            } else if (c2 == -2) { // free-stream
+                dx = -2.0 * (x1 - xf) * nx;
+                dy = -2.0 * (y1 - yf) * ny;
+                for (int j = 0; j < 4; ++j) {
+                    dQ[j] = d_Q_in[j] - Q1[j];
+                }
+            } else { // wall BC
+                double rhoL = Q1[0];
+                double uL = Q1[1] / rhoL;
+                double vL = Q1[2] / rhoL;
+                double pL = (Q1[3] - 0.5 * rhoL * (uL * uL + vL * vL)) * (d_flow->d_gamma[0] - 1.0);
+                double vn = uL * nx + vL * ny;
+                double ug = uL - 2.0 * vn * nx;
+                double vg = vL - 2.0 * vn * ny;
+                double Qg[4];
+                Qg[0] = rhoL;
+                Qg[1] = rhoL * ug;
+                Qg[2] = rhoL * vg;
+                Qg[3] = pL / (d_flow->d_gamma[0] - 1.0) + 0.5 * rhoL * (ug * ug + vg * vg);
+                for (int j = 0; j < 4; ++j) {
+                    dQ[j] = Qg[j] - Q1[j];
+                }
+                dx = -2.0 * (x1 - xf) * nx;
+                dy = -2.0 * (y1 - yf) * ny;
+            }
+            // update gradients
             for(int j=0;j<4;j++){
-                gradX[j] += (Q_nb[j] - d_Q[4*i + j]) * dx;
-                gradY[j] += (Q_nb[j] - d_Q[4*i + j]) * dy;
+                gradX[j] += dQ[j] * (dx * dMesh.d_Ixy[c] - dy * dMesh.d_Ixx[c]);
+                gradY[j] += dQ[j] * (dy * dMesh.d_Iyy[c] - dx * dMesh.d_Ixy[c]);
             }
         }
 
         // Apply geometric factors
         for(int j=0;j<4;j++){
-            d_rs.dQx[4*i+j] = gradX[j]*dMesh.d_Iyy[i] + gradY[j]*dMesh.d_Ixy[i];
-            d_rs.dQy[4*i+j] = gradY[j]*dMesh.d_Ixx[i] + gradX[j]*dMesh.d_Ixy[i];
+            d_rs.dQx[4*c+j] = gradX[j];
+            d_rs.dQy[4*c+j] = gradY[j];
         }
     }
 };
@@ -65,8 +97,13 @@ public:
     const DeviceFlow* d_flow;
     DeviceReconScraps d_rs;
     DeviceReconVars d_rv;
+    const int* n_faces;
 
     deviceFunction void operator()(const unsigned int i) const {
+        if (i >= *n_faces) {
+            // std::cout << "this bih out of bound" << std::endl;
+            return; // out of bounds
+        }
         int c1 = dMesh.d_f2c[2*i]-1;
         int c2 = dMesh.d_f2c[2*i+1]-1;
 

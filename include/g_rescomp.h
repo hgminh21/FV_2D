@@ -10,20 +10,23 @@ public:
     DeviceMeshData dMesh;
     const DeviceFluxVars* d_fv;
     DeviceResVars d_resv;
-    const int* d_c2f_flat;
-    const int* d_c2f_offset;
     double CFL;
     int use_cfl;
+    const int* n_cells;
 
     deviceFunction void operator()(const unsigned int c) const {
+        if (c >= *n_cells) {
+            // std::cout << "this bih out of bound" << std::endl;
+            return; // out of bounds
+        }
         double res[4] = {0.0,0.0,0.0,0.0};
         double dt_loc = 0.0;
 
-        int start = d_c2f_offset[c];
-        int end   = d_c2f_offset[c+1];
+        int start = dMesh.d_c2f_offset[c];
+        int end   = dMesh.d_c2f_offset[c+1];
 
         for (int idx = start; idx < end; ++idx) {
-            int i = d_c2f_flat[idx]; // face index
+            int i = dMesh.d_c2f_flat[idx]; // face index
             int c1 = dMesh.d_f2c[2*i]-1;
             int c2 = dMesh.d_f2c[2*i+1]-1;
             double Ai = dMesh.d_A[i];
