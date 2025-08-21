@@ -1,5 +1,5 @@
-#ifndef CUDADVICE_HPP
-#define CUDADVICE_HPP
+#ifndef CUDADVICE_CUH
+#define CUDADVICE_CUH
 
 #include <cuda_runtime.h>
 #define deviceFunction __device__

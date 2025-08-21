@@ -12,7 +12,6 @@ public:
     const DeviceFlow* dflow;
     const DeviceReconVars* d_rv;
     DeviceFluxVars d_fv;
-    std::string method;
     const int* n_faces;
 
     deviceFunction void operator()(const unsigned int i) const {
@@ -46,12 +45,7 @@ public:
         double fR[4] = {rhoR*vnR, rhoR*uR*vnR + pR*nx, rhoR*vR*vnR + pR*ny, vnR*(ER + pR)};
 
         double s_max;
-        if (method == "lax-friedrichs") {
-            s_max = fmax(fabs(vnL)+cL, fabs(vnR)+cR);
-        } else if (method == "rusanov") {
             s_max = 0.5 * (fabs(vnL)+fabs(vnR)) + 0.5*(cL+cR);
-        }
-
         d_fv.s_max_all[i] = s_max;
         for (int j=0; j<4; ++j)
             d_fv.F[4*i+j] = 0.5*(fL[j]+fR[j]) - 0.5*s_max*(d_rv->Q_R[4*i+j] - d_rv->Q_L[4*i+j]);

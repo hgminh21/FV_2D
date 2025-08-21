@@ -140,7 +140,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
     dIni.allocate(d, mesh);
     dIni.copyToDevice(d, Q_in, Q);
 
-    // std::cout << "check point 1: complete copy data h2d" << std::endl;
+    std::cout << "check point 1: complete copy data h2d" << std::endl;
     // scratch host buffers for reductions / logging
     std::vector<double> host_dt_local(mesh.n_cells);
     std::vector<double> host_res(mesh.n_cells * 4);
@@ -162,7 +162,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeGrad.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeGrad);
         }
-        // std::cout << "check point 2 complete 1st step of recon" << std::endl;
+        std::cout << "check point 2 complete 1st step of recon" << std::endl;
         // Face states from Q^n and gradients
         {
             ComputeFaceStates computeFace;
@@ -175,7 +175,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFace.n_faces = &mesh.n_faces;
             d.LaunchKernel(block2, Nthreads, computeFace);
         }
-        // std::cout << "check point 3: complete recon" << std::endl;
+        std::cout << "check point 3: complete recon" << std::endl;
         // Fluxes at faces
         {
             ComputeFluxes computeFlux;
@@ -183,11 +183,10 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFlux.dflow  = &dFlow;
             computeFlux.d_rv   = &drv;
             computeFlux.d_fv   = dfv;
-            computeFlux.method = flux.method;
             computeFlux.n_faces = &mesh.n_faces;
             d.LaunchKernel(block2, Nthreads, computeFlux);
         }
-        // std::cout << "check point 4: complete flux" << std::endl;
+        std::cout << "check point 4: complete flux" << std::endl;
         // Residual (cell-based)
         {
             ComputeResidualCellBased computeRes;
@@ -199,7 +198,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeRes.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeRes);
         }
-        // std::cout << "check point 5: complete res" << std::endl;
+        std::cout << "check point 5: complete res" << std::endl;
         // Compute Q_stage
         {
             ComputeQStage qstage;
@@ -215,10 +214,6 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             if (time.use_cfl == 1 && time.local_dt == 0) {
                 d.MemcpyDeviceToHost(host_dt_local.data(), dresv.dt_local, mesh.n_cells * sizeof(double));
                 double sum = 0.0;
-                for (int i = 0; i < mesh.n_cells; ++i) sum += host_dt_local[i];
-                // dt_local kernel filled sum of (s_max A / V); invert * CFL
-                // If your ComputeResidualCellBased already did: dt_local[i] = CFL / sum_i,
-                // then the min reduction is appropriate:
                 dt_glob = host_dt_local[0];
                 for (int i = 1; i < mesh.n_cells; ++i) dt_glob = std::min(dt_glob, host_dt_local[i]);
             }
@@ -226,7 +221,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             qstage.n_cells   = mesh.n_cells;
 
             d.LaunchKernel(block3, Nthreads, qstage);
-            // std::cout << "check point 6: complete Q_stage" << std::endl;
+            std::cout << "check point 6: complete Q_stage" << std::endl;
         }
 
         // =========================
@@ -265,7 +260,6 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFlux2.dflow  = &dFlow;
             computeFlux2.d_rv   = &drv;
             computeFlux2.d_fv   = dfv;
-            computeFlux2.method = flux.method;
             computeFlux2.n_faces = &mesh.n_faces;
             d.LaunchKernel(block2, Nthreads, computeFlux2);
         }
@@ -281,7 +275,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeRes2.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeRes2);
         }
-        // std::cout << "check point 7: managed to pull ur ass til here" << std::endl;
+        std::cout << "check point 7: managed to pull ur ass til here" << std::endl;
         // =========================
         // Final Update: Q^{n+1}
         // =========================

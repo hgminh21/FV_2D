@@ -4,9 +4,9 @@ project(FV_2D VERSION 1.1.0 LANGUAGES C CXX)
 # ===============================
 # Compiler & Language Settings
 # ===============================
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+# set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ===============================
 # Build Options
@@ -23,9 +23,9 @@ if(BUILD_CUDA)
     cmake_policy(SET CMP0104 NEW)
     enable_language(CUDA)
     add_compile_options(-D USECUDA)
-    add_executable(FV_2D_CUDA ./src/main.cpp)
+    add_executable(FV_2D_CUDA ./src/main.cu)
     target_include_directories(FV_2D_CUDA PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_compile_options(FV_2D_CUDA PRIVATE -O3 --use_fast_math -arch=sm_70)
+    target_compile_options(FV_2D_CUDA PRIVATE -O3 -arch=sm_70)
     set_target_properties(FV_2D_CUDA PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )

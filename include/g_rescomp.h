@@ -28,12 +28,11 @@ public:
         for (int idx = start; idx < end; ++idx) {
             int i = dMesh.d_c2f_flat[idx]; // face index
             int c1 = dMesh.d_f2c[2*i]-1;
-            int c2 = dMesh.d_f2c[2*i+1]-1;
+            // int c2 = dMesh.d_f2c[2*i+1]-1;
             double Ai = dMesh.d_A[i];
 
-            bool isLeft = (c1 == c);
             for (int j=0;j<4;j++)
-                res[j] += (isLeft ? -1.0 : 1.0) * d_fv->F[4*i + j] * Ai / dMesh.d_V[c];
+                res[j] -= d_fv->F[4*i + j] * Ai / dMesh.d_V[c];
 
             if (use_cfl)
                 dt_loc += d_fv->s_max_all[i] * Ai / dMesh.d_V[c];

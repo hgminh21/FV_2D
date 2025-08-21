@@ -1,5 +1,5 @@
 [solver]
-max_step = 10
+max_step = 5
 monitor_step = 1
 output_step = 2000
 
