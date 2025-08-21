@@ -1,3 +1,6 @@
+#ifndef OMPDEVICE_HPP
+#define OMPDEVICE_HPP
+
 #include <stdlib.h>
 #include <cstring>
 #define deviceFunction
@@ -26,3 +29,5 @@ public:
 		}
 	}
 };
+
+#endif // OMPDEVICE_HPP

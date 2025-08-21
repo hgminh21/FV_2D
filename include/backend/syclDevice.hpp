@@ -1,3 +1,6 @@
+#ifndef SYCLDEVICE_HPP
+#define SYCLDEVICE_HPP
+
 #include <sycl/sycl.hpp>
 #include <iostream>
 #define deviceFunction
@@ -78,3 +81,4 @@ public:
     }
 };
 
+#endif // SYCLDEVICE_HPP

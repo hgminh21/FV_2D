@@ -226,12 +226,12 @@ MeshData readMesh(const string &filename) {
 
     // Step 3: Fill flat array
     mesh.c2f_flat.resize(mesh.c2f_offset.back());
-    std::vector<int> insert_pos = mesh.c2f_offset; // temporary counter
+    std::vector<int> insert_pos2 = mesh.c2f_offset; // temporary counter
     for (int i = 0; i < mesh.n_faces; ++i) {
         int c1 = mesh.f2c[2*i] - 1;
         int c2 = mesh.f2c[2*i+1] - 1;
-        if (c1 >= 0) mesh.c2f_flat[insert_pos[c1]++] = i;
-        if (c2 >= 0) mesh.c2f_flat[insert_pos[c2]++] = i;
+        if (c1 >= 0) mesh.c2f_flat[insert_pos2[c1]++] = i;
+        if (c2 >= 0) mesh.c2f_flat[insert_pos2[c2]++] = i;
     }
 
     // Compute cell centroids from accumulated moments.

@@ -1,3 +1,6 @@
+#ifndef CUDADVICE_HPP
+#define CUDADVICE_HPP
+
 #include <cuda_runtime.h>
 #define deviceFunction __device__
 template <typename T>
@@ -27,3 +30,5 @@ public:
         deviceLaunchFunctorWrapper<<<Nblock, Nthread>>>(functor);
     }
 };
+
+#endif // CUDADVICE_HPP

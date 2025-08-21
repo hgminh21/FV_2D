@@ -27,6 +27,7 @@
 #endif
 
 // Cross-platform helper to get optimal threads per block / work-group size
+#include <omp.h>  // at the top of your header/source
 unsigned int getOptimalThreadsPerBlock(device& d) {
 #ifdef USECUDA
     cudaDeviceProp props;
@@ -129,7 +130,8 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
     dIni.allocate(d, mesh);
     dIni.copyToDevice(d, Q_in, Q);
 
-    // (Optional) scratch host buffers for reductions / logging
+    std::cout << "check point 1: complete copy data h2d" << std::endl;
+    // scratch host buffers for reductions / logging
     std::vector<double> host_dt_local(mesh.n_cells);
     std::vector<double> host_res(mesh.n_cells * 4);
 
@@ -150,6 +152,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             d.LaunchKernel(block3, Nthreads, computeGrad);
         }
 
+        std::cout << "check point 2 complete 1st step of recon" << std::endl;
         // Face states from Q^n and gradients
         {
             ComputeFaceStates computeFace;
@@ -161,7 +164,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFace.d_rv   = drv;
             d.LaunchKernel(block2, Nthreads, computeFace);
         }
-
+        std::cout << "check point 3: complete recon" << std::endl;
         // Fluxes at faces
         {
             ComputeFluxes computeFlux;
@@ -172,7 +175,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFlux.method = flux.method;
             d.LaunchKernel(block2, Nthreads, computeFlux);
         }
-
+        std::cout << "check point 4: complete flux" << std::endl;
         // Residual (cell-based)
         {
             ComputeResidualCellBased computeRes;
@@ -183,7 +186,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeRes.use_cfl = time.use_cfl;
             d.LaunchKernel(block3, Nthreads, computeRes);
         }
-
+        std::cout << "check point 5: complete res" << std::endl;
         // Compute Q_stage
         {
             ComputeQStage qstage;
@@ -210,6 +213,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             qstage.n_cells   = mesh.n_cells;
 
             d.LaunchKernel(block3, Nthreads, qstage);
+            std::cout << "check point 6: complete Q_stage" << std::endl;
         }
 
         // =========================
@@ -314,8 +318,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
                     << "res3 = " << res3 << ", "
                     << "res4 = " << res4 << std::endl;
         }
-
-
+    }
     // frees
     drv.free(d); drs.free(d); dfv.free(d); dresv.free(d); div.free(d);
     dMesh.free(d); dFlow.free(d); dIni.free(d);

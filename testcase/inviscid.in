@@ -4,7 +4,7 @@ monitor_step = 100
 output_step = 2000
 
 [meshfile]
-file = ../../grid_file.in
+file = ./grid_file.in
 
 [flow]
 type = 1
@@ -15,8 +15,8 @@ p = 1
 gamma = 1.4
 
 [reconstruct]
-method = green-gauss
-use_lim = vanleer
+method = least-square
+use_lim = nolim
 
 [flux]
 method = lax-friedrichs

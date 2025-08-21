@@ -1,3 +1,6 @@
+#ifndef HIPDEVICE_HPP
+#define HIPDEVICE_HPP
+
 #include <hip/hip_runtime.h>
 #include <iostream>
 #define deviceFunction __device__
@@ -51,3 +54,5 @@ public:
         // HIP_CHECK(hipDeviceSynchronize());
     }
 };
+
+#endif // HIPDEVICE_HPP
