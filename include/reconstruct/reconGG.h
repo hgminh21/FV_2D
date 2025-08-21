@@ -21,11 +21,11 @@ void reconstruct_gaussgreen(const MeshData &mesh,
                             reconScraps &rs)
 {
     // reset accumulators and limiter
-    rs.Qx1_temp.setZero();
-    rs.Qy1_temp.setZero();
+    std::fill(rs.Qx1_temp.begin(), rs.Qx1_temp.end(), 0.0);
+    std::fill(rs.Qy1_temp.begin(), rs.Qy1_temp.end(), 0.0);
     rs.Q_max = Q;
     rs.Q_min = Q;
-    rs.phi.setConstant(2.0);
+    std::fill(rs.phi.begin(), rs.phi.end(), 2.0);
     
     int lim_trigger;
     if (recon.use_lim == "nolim") {lim_trigger = 0;}

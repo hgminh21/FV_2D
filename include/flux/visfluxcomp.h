@@ -23,12 +23,12 @@ void compute_fluxes_vis(const MeshData &mesh,
                         ioVars &iv)
 {
     // Inviscid part
-    compute_fluxes(mesh, flow, flux, rs, fv);
+    compute_fluxes(mesh, flow, flux, rv, fv);
 
-    fs.F_viscous.setZero();
-    fs.Q_f.setZero();
-    fs.dQ_fx.setZero();
-    fs.dQ_fy.setZero();
+    std::fill(fs.F_viscous.begin(), fs.F_viscous.end(), 0.0);
+    std::fill(fs.Q_f.begin(), fs.Q_f.end(), 0.0);
+    std::fill(fs.dQ_fx.begin(), fs.dQ_fx.end(), 0.0);
+    std::fill(fs.dQ_fy.begin(), fs.dQ_fy.end(),0.0);
       
     int j = 0;
 
@@ -53,7 +53,7 @@ void compute_fluxes_vis(const MeshData &mesh,
         fs.Q_f[4*i+3] = E;
 
         if (c2 >= 0) {
-            if (int k < 4, ++k) {
+            if (int k = 0; k < 4, ++k) {
                 fs.dQ_fx[4*i + k] = 0.5 * (rs.dQx[4*c1 + k] + rs.dQx[4*c2 + k]);
                 fs.dQ_fy[4*i + k] = 0.5 * (rs.dQy[4*c1 + k] + rs.dQy[4*c2 + k]);
             }

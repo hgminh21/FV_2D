@@ -29,14 +29,14 @@ void compute_fluxes(const MeshData &mesh,
         double uL = rv.Q_L[4*i + 1] / rhoL;
         double vL = rv.Q_L[4*i + 2] / rhoL;
         double EL = rv.Q_L[4*i + 3];
-        double pL = (EL - 0.5 * rhoL * (uL * uL + vL * vL)) * (flow.gamma - 1);
+        double pL = (EL - 0.5 * rhoL * (uL * uL + vL * vL)) * (flow.gamma - 1.0);
 
         // Right state quantities
         double rhoR = rv.Q_R[4*i];
         double uR = rv.Q_R[4*i + 1] / rhoR;
         double vR = rv.Q_R[4*i + 2] / rhoR;
         double ER = rv.Q_R[4*i + 3];
-        double pR = (ER - 0.5 * rhoR * (uR * uR + vR * vR)) * (flow.gamma - 1);
+        double pR = (ER - 0.5 * rhoR * (uR * uR + vR * vR)) * (flow.gamma - 1.0);
 
         double vnL = uL * nx + vL * ny;
         double vnR = uR * nx + vR * ny;

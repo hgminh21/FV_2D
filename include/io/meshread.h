@@ -41,6 +41,13 @@ struct MeshData {
 
     vector<int> c2n_tri; // Triangulated cell-to-node connectivity
 
+    // testing, this is use to replace accumulation sum in least-squares
+    vector<int> neighbor_flat;     // flat neighbor list
+    vector<int> neighbor_count;    // number of neighbors per cell
+    vector<int> neighbor_offset;   // prefix sum for starting index in neighbor_flat
+
+    vector<int> c2f_flat;    // flattened list of faces per cell
+    vector<int> c2f_offset;
 };
 
 // Function to read the mesh file, compute geometric data, and return a MeshData struct.
@@ -165,6 +172,67 @@ MeshData readMesh(const string &filename) {
     }
     
     cout << "  Number of wall faces: " << mesh.n_fwalls << endl;
+
+    // Build cell-to-cell neighbors
+    mesh.neighbor_count.resize(mesh.n_cells, 0);
+
+    // count neighbors per cell
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
+
+        if (c1 >= 0) mesh.neighbor_count[c1] += (c2 >= 0 ? 1 : 0); // only valid neighbors
+        if (c2 >= 0) mesh.neighbor_count[c2] += 1;                 // valid neighbors
+    }
+
+    // Compute prefix sum for neighbor offsets
+    mesh.neighbor_offset.resize(mesh.n_cells + 1, 0);
+    for (int i = 0; i < mesh.n_cells; ++i) {
+        mesh.neighbor_offset[i+1] = mesh.neighbor_offset[i] + mesh.neighbor_count[i];
+    }
+
+    // Allocate flat neighbor array
+    mesh.neighbor_flat.resize(mesh.neighbor_offset.back(), -1);
+
+    // Temporary counters to keep track of insertion positions
+    std::vector<int> insert_pos(mesh.n_cells, 0);
+    for (int i = 0; i < mesh.n_cells; ++i) insert_pos[i] = mesh.neighbor_offset[i];
+
+    // Fill the neighbor_flat array
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
+
+        if (c1 >= 0 && c2 >= 0) {
+            mesh.neighbor_flat[insert_pos[c1]++] = c2;
+            mesh.neighbor_flat[insert_pos[c2]++] = c1;
+        }
+    }
+
+    // Compute cell-to-face connectivity
+    // Step 1: Count number of faces per cell
+    std::vector<int> face_count(mesh.n_cells, 0);
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
+        if (c1 >= 0) face_count[c1]++;
+        if (c2 >= 0) face_count[c2]++;
+    }
+
+    // Step 2: Compute offsets (prefix sum)
+    mesh.c2f_offset.resize(mesh.n_cells + 1, 0);
+    for (int i = 0; i < mesh.n_cells; ++i)
+        mesh.c2f_offset[i+1] = mesh.c2f_offset[i] + face_count[i];
+
+    // Step 3: Fill flat array
+    mesh.c2f_flat.resize(mesh.c2f_offset.back());
+    std::vector<int> insert_pos = mesh.c2f_offset; // temporary counter
+    for (int i = 0; i < mesh.n_faces; ++i) {
+        int c1 = mesh.f2c[2*i] - 1;
+        int c2 = mesh.f2c[2*i+1] - 1;
+        if (c1 >= 0) mesh.c2f_flat[insert_pos[c1]++] = i;
+        if (c2 >= 0) mesh.c2f_flat[insert_pos[c2]++] = i;
+    }
 
     // Compute cell centroids from accumulated moments.
     for (int i = 0; i < mesh.n_cells; ++i) {
@@ -300,74 +368,5 @@ void writeMatrix(std::ostream &out, const std::vector<T> &vec, int n_rows, int n
         out << "\n";
     }
 }
-
-// Function to output (write) the mesh data to a text file.
-void outputMeshData(const MeshData &mesh, const string &filename) {
-    ofstream out(filename);
-    if (!out) {
-        cerr << "Error opening file " << filename << " for output." << endl;
-        return;
-    }
-
-    out << "# Mesh Data Output\n";
-    out << "# n_nodes: " << mesh.n_nodes << "\n";
-    out << "# n_faces: " << mesh.n_faces << "\n";
-    out << "# n_cells: " << mesh.n_cells << "\n\n";
-
-    out << "# Nodal Coordinates (r_node):\n";
-    writeMatrix(out, mesh.r_node, mesh.n_nodes, 2);
-    out << "\n";
-
-    out << "# Face-to-Node Connectivity (f2n):\n";
-    writeMatrix(out, mesh.f2n, mesh.n_faces, 2);
-    out << "\n";
-
-    out << "# Face-to-Cell Connectivity (f2c):\n";
-    writeMatrix(out, mesh.f2c, mesh.n_faces, 2);
-    out << "\n";
-
-    out << "# Face Midpoints (r_f):\n";
-    writeMatrix(out, mesh.r_f, mesh.n_faces, 2);
-    out << "\n";
-
-    out << "# Face Normals (n_f):\n";
-    writeMatrix(out, mesh.n_f, mesh.n_faces, 2);
-    out << "\n";
-
-    out << "# Face Areas (A):\n";
-    writeMatrix(out, mesh.A, mesh.n_faces, 1);
-    out << "\n";
-
-    out << "# Cell Volumes (V):\n";
-    writeMatrix(out, mesh.V, mesh.n_cells, 1);
-    out << "\n";
-
-    out << "# Cell Centroids (r_c):\n";
-    writeMatrix(out, mesh.r_c, mesh.n_cells, 2);
-    out << "\n";
-
-    out << "# Ixx:\n";
-    writeMatrix(out, mesh.Ixx, mesh.n_cells, 1);
-    out << "\n";
-
-    out << "# Iyy:\n";
-    writeMatrix(out, mesh.Iyy, mesh.n_cells, 1);
-    out << "\n";
-
-    out << "# Ixy:\n";
-    writeMatrix(out, mesh.Ixy, mesh.n_cells, 1);
-    out << "\n";
-
-    out << "# delta:\n";
-    writeMatrix(out, mesh.delta, mesh.n_cells, 1);
-    out << "\n";
-
-    out << "# Triangulated Cell-to-Node Connectivity (c2n_tri):\n";
-    writeMatrix(out, mesh.c2n_tri, mesh.c2n_tri.size() / 3, 3);
-    out << "\n";
-
-    out.close();
-}
-
 
 #endif // MESHREAD_H

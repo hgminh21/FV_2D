@@ -9,7 +9,7 @@
 #include "io/initialize.h"
 #include "io/meshread.h"
 // #include "explicit/ssprk3.h"
-#include "explicit/ssprk2.h"
+#include "explicit/g_ssprk2.h"
 // #include "implicit/implicit.h"
 #include <omp.h> 
 
@@ -50,24 +50,6 @@ int main(int argc, char* argv[]) {
         cerr << "Usage: " << argv[0] << " [-t N] <input>\n";
         return 1;
     }
-
-    // // 4) Tell OpenMP how many threads to use
-    // omp_set_num_threads(nt);
-
-    // // REMOVE -t FROM argv SO THE SOLVER NEVER SEES IT
-    // int w = 1;  // write‐index: keep argv[0]
-    // for (int r = 1; r < argc; ++r) {
-    //     string s = argv[r];
-    //     if (s == "-t" && r+1 < argc) {
-    //         // skip both "-t" and its numeric argument
-    //         ++r;
-    //     }
-    //     else {
-    //         argv[w++] = argv[r];
-    //     }
-    // }
-    // argc = w;
-    // argv[w] = nullptr;  // just in case any parser walks argv[] to a nullptr
 
     string build_date = __DATE__; 
     // Fixed box width (match your overall box width)
@@ -128,12 +110,15 @@ int main(int argc, char* argv[]) {
     // } else {
     //     // Handle other methods or default case
     //     if (time.rk_steps == 2) {
-            ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
+    //        ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
     //     } else if (time.rk_steps == 3) {
     //         // Perform tasks for the explicit method
     //         ssprk3(mesh, solver, flow, recon, flux, time, Q, Q_init);
     //     }
     // }
+
+    // testing GPU ssprk2
+    ssprk2(mesh, solver, flow, recon, flux, time, Q, Q_init);
 
     cout << "Simulation completed." << endl;
     auto t2 = Clock::now();   // After initialization

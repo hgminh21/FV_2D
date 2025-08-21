@@ -47,7 +47,7 @@ void reconstruct_linear(const MeshData &mesh,
             double rhoL = rho1;
             double uL = rhou1/rhoL, vL = rhov1/rhoL;
             double pL = (E1 - 0.5*rhoL*(uL*uL+vL*vL))*(flow.gamma-1.0);
-            double nx = mesh.n_f(i,0), ny = mesh.n_f(i,1);
+            double nx = mesh.n_f[2*i], ny = mesh.n_f[2*i+1];
             double vn = uL*nx + vL*ny;
             double uR = uL - 2.0*vn*nx;
             double vR = vL - 2.0*vn*ny;
