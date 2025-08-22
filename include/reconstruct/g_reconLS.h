@@ -2,7 +2,7 @@
 #define G_RECONLS_H  
 
 #include "explicit/g_varini.h"
-#include "explicit/meshcopy.h"
+#include "backend/datacopy.h"
 #include "io/initialize.h"
 
 // Compute per-cell gradients using neighbor info
@@ -75,8 +75,8 @@ public:
             }
             // update gradients
             for(int j=0;j<4;j++){
-                gradX[j] += dQ[j] * (dx * dMesh.d_Ixy[c] - dy * dMesh.d_Ixx[c]);
-                gradY[j] += dQ[j] * (dy * dMesh.d_Iyy[c] - dx * dMesh.d_Ixy[c]);
+                gradX[j] += dQ[j] * (dx * dMesh.d_Iyy[c] - dy * dMesh.d_Ixy[c]);
+                gradY[j] += dQ[j] * (dy * dMesh.d_Ixx[c] - dx * dMesh.d_Ixy[c]);
             }
         }
 

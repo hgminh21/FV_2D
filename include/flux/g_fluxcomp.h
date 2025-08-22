@@ -4,7 +4,7 @@
 #include <cmath>
 #include "io/initialize.h"
 #include "explicit/g_varini.h"
-#include "explicit/meshcopy.h"
+#include "backend/datacopy.h"
 
 class ComputeFluxes {
 public:
@@ -40,6 +40,16 @@ public:
         double vnR = uR*nx + vR*ny;
         double cL = sqrt(gamma * pL / rhoL);
         double cR = sqrt(gamma * pR / rhoR);
+
+        if (rhoL <= 0 || rhoR <= 0) {
+            cerr << "Warning: Non-positive density at face " << i << endl;
+            // continue;
+        }
+
+        if (pL <= 0 || pR <= 0) {
+            cerr << "Warning: Non-positive pressure at face " << i << endl;
+            // continue;
+        }
 
         double fL[4] = {rhoL*vnL, rhoL*uL*vnL + pL*nx, rhoL*vL*vnL + pL*ny, vnL*(EL + pL)};
         double fR[4] = {rhoR*vnR, rhoR*uR*vnR + pR*nx, rhoR*vR*vnR + pR*ny, vnR*(ER + pR)};

@@ -3,7 +3,7 @@
 
 #include "io/initialize.h"
 #include "explicit/g_varini.h"
-#include "explicit/meshcopy.h"
+#include "backend/datacopy.h"
 
 class ComputeResidualCellBased {
 public:
@@ -30,10 +30,9 @@ public:
             int c1 = dMesh.d_f2c[2*i]-1;
             // int c2 = dMesh.d_f2c[2*i+1]-1;
             double Ai = dMesh.d_A[i];
-
+            bool isLeft = (c1 == c);
             for (int j=0;j<4;j++)
-                res[j] -= d_fv->F[4*i + j] * Ai / dMesh.d_V[c];
-
+                res[j] += (isLeft ? -1.0 : 1.0) * d_fv->F[4*i + j] * Ai / dMesh.d_V[c];
             if (use_cfl)
                 dt_loc += d_fv->s_max_all[i] * Ai / dMesh.d_V[c];
         }

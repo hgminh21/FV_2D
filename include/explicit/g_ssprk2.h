@@ -4,44 +4,18 @@
 #include <iostream>
 #include <filesystem>
 
+#include "backend/opt_nthread.hpp"
+
 #include "io/meshread.h"
 #include "io/initialize.h"
+
+#include "g_varini.h"
+#include "backend/datacopy.h"
+
 #include "reconstruct/g_reconLS.h"
 #include "flux/g_fluxcomp.h"
 #include "g_rescomp.h"
-#include "g_varini.h"
-#include "explicit/meshcopy.h"
 
-#ifdef USECUDA
-    #include "backend/cudaDevice.cuh"
-    typedef CUDAdevice device;
-#elif defined USESYCL
-    #include "backend/syclDevice.hpp"
-    typedef SYCLdevice device; 
-#elif defined USEHIP
-    #include "backend/hipDevice.hpp"
-    typedef HIPdevice device;      
-#else
-     #include "backend/ompDevice.hpp"
-     typedef OMPdevice device;
-#endif
-
-// // Cross-platform helper to get optimal threads per block / work-group size
-// #include <omp.h>  // at the top of your header/source
-// unsigned int getOptimalThreadsPerBlock(device& d) {
-// #ifdef USECUDA
-//     cudaDeviceProp props;
-//     cudaGetDeviceProperties(&props, 0);
-//     return props.warpSize * 4; // safe multiple of warp (e.g., 128)
-// #elif defined USESYCL
-//     auto dev = d.queue.get_device();
-//     return dev.get_info<sycl::info::device::max_work_group_size>() / 2; 
-// #elif defined USEOMP
-//     return omp_get_max_threads();
-// #else
-//     return 64; // fallback
-// #endif
-// }
 
 class ComputeQStage {
 public:
@@ -55,7 +29,7 @@ public:
     unsigned int n_cells;
 
     deviceFunction void operator()(const unsigned int c) const {
-        if (c >= n_cells) {
+        if (c > n_cells) {
             // std::cout << "this bih out of bound" << std::endl;
             return; // out of bounds
         }
@@ -85,7 +59,7 @@ public:
     unsigned int n_cells;
 
     deviceFunction void operator()(const unsigned int c) const {
-        if (c >= n_cells) {
+        if (c > n_cells) {
             // std::cout << "this bih out of bound" << std::endl;
             return; // out of bounds
         }
@@ -110,9 +84,9 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             std::vector<double> &Q, const std::vector<double> &Q_in)
 {
     device d;
-    // unsigned int Nthreads = getOptimalThreadsPerBlock(d);
-    // std::cout << "Optimal threads per block: " << Nthreads << std::endl;
-    unsigned int Nthreads = 128;
+    unsigned int Nthreads = getOptimalThreadsPerBlock(d);
+    std::cout << "Optimal threads per block: " << Nthreads << std::endl;
+    // unsigned int Nthreads = 128;
     unsigned int block1 = (mesh.n_nodes + Nthreads - 1) / Nthreads;
     unsigned int block2 = (mesh.n_faces + Nthreads - 1) / Nthreads;
     unsigned int block3 = (mesh.n_cells + Nthreads - 1) / Nthreads;
@@ -140,7 +114,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
     dIni.allocate(d, mesh);
     dIni.copyToDevice(d, Q_in, Q);
 
-    std::cout << "check point 1: complete copy data h2d" << std::endl;
+    // std::cout << "check point 1: complete copy data h2d" << std::endl;
     // scratch host buffers for reductions / logging
     std::vector<double> host_dt_local(mesh.n_cells);
     std::vector<double> host_res(mesh.n_cells * 4);
@@ -162,7 +136,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeGrad.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeGrad);
         }
-        std::cout << "check point 2 complete 1st step of recon" << std::endl;
+        // std::cout << "check point 2 complete 1st step of recon" << std::endl;
         // Face states from Q^n and gradients
         {
             ComputeFaceStates computeFace;
@@ -175,7 +149,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFace.n_faces = &mesh.n_faces;
             d.LaunchKernel(block2, Nthreads, computeFace);
         }
-        std::cout << "check point 3: complete recon" << std::endl;
+        // std::cout << "check point 3: complete recon" << std::endl;
         // Fluxes at faces
         {
             ComputeFluxes computeFlux;
@@ -186,7 +160,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeFlux.n_faces = &mesh.n_faces;
             d.LaunchKernel(block2, Nthreads, computeFlux);
         }
-        std::cout << "check point 4: complete flux" << std::endl;
+        // std::cout << "check point 4: complete flux" << std::endl;
         // Residual (cell-based)
         {
             ComputeResidualCellBased computeRes;
@@ -198,7 +172,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeRes.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeRes);
         }
-        std::cout << "check point 5: complete res" << std::endl;
+        // std::cout << "check point 5: complete res" << std::endl;
         // Compute Q_stage
         {
             ComputeQStage qstage;
@@ -221,7 +195,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             qstage.n_cells   = mesh.n_cells;
 
             d.LaunchKernel(block3, Nthreads, qstage);
-            std::cout << "check point 6: complete Q_stage" << std::endl;
+            // std::cout << "check point 6: complete Q_stage" << std::endl;
         }
 
         // =========================
@@ -275,7 +249,7 @@ void ssprk2(const MeshData &mesh, const Solver &solver, const Flow &flow,
             computeRes2.n_cells = &mesh.n_cells;
             d.LaunchKernel(block3, Nthreads, computeRes2);
         }
-        std::cout << "check point 7: managed to pull ur ass til here" << std::endl;
+        // std::cout << "check point 7: managed to pull ur ass til here" << std::endl;
         // =========================
         // Final Update: Q^{n+1}
         // =========================
